@@ -512,3 +512,27 @@ input[type="date"] {
 .radio-label input {
     margin-right: 6px;
 }
+
+.login-container {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#login-section, #logout-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.login-info {
+    margin-left: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.login-status {
+    font-weight: 500;
+}
