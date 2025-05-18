@@ -8,7 +8,7 @@ let slepice = [
         datumUmrti: "", 
         stariPriUmrti: null, 
         barvaKrouzku: "červená", 
-        cisloKrouzku: "A123", 
+        cisloKrouzku: "1", 
         porizovaci_cena: 250 
     },
     { 
@@ -19,7 +19,7 @@ let slepice = [
         datumUmrti: "", 
         stariPriUmrti: null, 
         barvaKrouzku: "modrá", 
-        cisloKrouzku: "B456", 
+        cisloKrouzku: "2", 
         porizovaci_cena: 290 
     },
     { 
@@ -30,7 +30,7 @@ let slepice = [
         datumUmrti: "2025-03-15", 
         stariPriUmrti: 28, 
         barvaKrouzku: "zelená", 
-        cisloKrouzku: "C789", 
+        cisloKrouzku: "3", 
         porizovaci_cena: 320 
     }
 ];
@@ -65,6 +65,18 @@ const modalSave = document.getElementById('modal-save');
 
 const slepiceForm = document.getElementById('slepice-form');
 const slepiceIdInput = document.getElementById('slepice-id');
+const druhInput = document.getElementById('druh');
+const datumZakoupeniInput = document.getElementById('datumZakoupeni');
+const stariPriZakoupeniInput = document.getElementById('stariPriZakoupeni');
+const datumUmrtiInput = document.getElementById('datumUmrti');
+const stariPriUmrtiInput = document.getElementById('stariPriUmrti');
+const barvaKrouzkuInput = document.getElementById('barvaKrouzku');
+const cisloKrouzkuInput = document.getElementById('cisloKrouzku');
+const porizovaci_cenaInput = document.getElementById('porizovaci_cena');
+const hromadnePridaniCheck = document.getElementById('hromadne-pridani');
+const pocetSlepicInput = document.getElementById('pocet-slepic');
+const hromadnePridaniContainer = document.getElementById('hromadne-pridani-container');
+const druhyDatalist = document.getElementById('druhy-datalist');
 
 const deleteModal = document.getElementById('delete-modal');
 const deleteModalClose = document.getElementById('delete-modal-close');
@@ -194,6 +206,67 @@ function searchSlepice(query) {
     );
 }
 
+// Získání unikátních druhů slepic z existujících záznamů
+function updateDruhyDatalist() {
+    if (!druhyDatalist) return;
+    
+    druhyDatalist.innerHTML = '';
+    const uniqueDruhy = [...new Set(slepice.map(s => s.druh))];
+    
+    uniqueDruhy.forEach(druh => {
+        const option = document.createElement('option');
+        option.value = druh;
+        druhyDatalist.appendChild(option);
+    });
+}
+
+// Naplnění selectu pro čísla kroužků
+function populateCislaKrouzku() {
+    if (!cisloKrouzkuInput) return;
+    
+    cisloKrouzkuInput.innerHTML = '<option value="">Vyberte číslo</option>';
+    
+    for (let i = 1; i <= 20; i++) {
+        const option = document.createElement('option');
+        option.value = i.toString();
+        option.textContent = i.toString();
+        cisloKrouzkuInput.appendChild(option);
+    }
+}
+
+// Automatický výpočet stáří při úmrtí
+function calculateStariPriUmrti() {
+    if (!datumZakoupeniInput.value || !datumUmrtiInput.value || !stariPriZakoupeniInput.value) {
+        return;
+    }
+    
+    const datumZakoupeni = new Date(datumZakoupeniInput.value);
+    const datumUmrti = new Date(datumUmrtiInput.value);
+    const stariPriZakoupeni = parseInt(stariPriZakoupeniInput.value);
+    
+    // Kontrola platnosti dat
+    if (datumUmrti <= datumZakoupeni) {
+        document.getElementById('datumUmrti-error').textContent = 'Datum úmrtí musí být pozdější než datum zakoupení';
+        return;
+    }
+    
+    // Výpočet rozdílu v týdnech
+    const rozdilDny = Math.floor((datumUmrti - datumZakoupeni) / (1000 * 60 * 60 * 24));
+    const rozdilTydny = Math.floor(rozdilDny / 7);
+    
+    // Stáří při úmrtí = stáří při zakoupení + počet týdnů mezi datumem zakoupení a úmrtím
+    const stariPriUmrti = stariPriZakoupeni + rozdilTydny;
+    
+    stariPriUmrtiInput.value = stariPriUmrti;
+}
+
+// Přepnutí zobrazení hromadného přidání
+function toggleHromadnePridani() {
+    if (!hromadnePridaniContainer || !hromadnePridaniCheck) return;
+    
+    hromadnePridaniContainer.style.display = hromadnePridaniCheck.checked ? 'block' : 'none';
+}
+
 // Otevření modálního okna pro přidání
 function openAddModal() {
     modalTitle.textContent = 'Přidat novou slepici';
@@ -202,7 +275,22 @@ function openAddModal() {
     
     // Nastavit dnešní datum jako výchozí pro datum zakoupení
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('datumZakoupeni').value = today;
+    datumZakoupeniInput.value = today;
+    
+    // Aktualizace našeptávače druhů
+    updateDruhyDatalist();
+    
+    // Naplnění čísly kroužků
+    populateCislaKrouzku();
+    
+    // Resetování a zobrazení hromadného přidání
+    if (hromadnePridaniCheck) {
+        hromadnePridaniCheck.checked = false;
+        toggleHromadnePridani();
+        
+        // Zobrazení sekce pro hromadné přidání
+        document.getElementById('hromadne-pridani-section').style.display = 'block';
+    }
     
     slepiceModal.classList.add('active');
 }
@@ -216,14 +304,42 @@ function openEditModal(id) {
     
     // Nastavení hodnot formuláře
     slepiceIdInput.value = slepiceToEdit.id;
-    document.getElementById('druh').value = slepiceToEdit.druh;
-    document.getElementById('datumZakoupeni').value = slepiceToEdit.datumZakoupeni;
-    document.getElementById('stariPriZakoupeni').value = slepiceToEdit.stariPriZakoupeni;
-    document.getElementById('datumUmrti').value = slepiceToEdit.datumUmrti || '';
-    document.getElementById('stariPriUmrti').value = slepiceToEdit.stariPriUmrti || '';
-    document.getElementById('barvaKrouzku').value = slepiceToEdit.barvaKrouzku || '';
-    document.getElementById('cisloKrouzku').value = slepiceToEdit.cisloKrouzku || '';
-    document.getElementById('porizovaci_cena').value = slepiceToEdit.porizovaci_cena || '';
+    druhInput.value = slepiceToEdit.druh;
+    datumZakoupeniInput.value = slepiceToEdit.datumZakoupeni;
+    stariPriZakoupeniInput.value = slepiceToEdit.stariPriZakoupeni;
+    datumUmrtiInput.value = slepiceToEdit.datumUmrti || '';
+    stariPriUmrtiInput.value = slepiceToEdit.stariPriUmrti || '';
+    barvaKrouzkuInput.value = slepiceToEdit.barvaKrouzku || '';
+    
+    // Naplnění čísly kroužků
+    populateCislaKrouzku();
+    
+    // Nastavení vybraného čísla kroužku
+    if (slepiceToEdit.cisloKrouzku) {
+        // Pokud je číslo kroužku v rozsahu 1-20, vybereme ho ze seznamu
+        if (/^\d+$/.test(slepiceToEdit.cisloKrouzku) && parseInt(slepiceToEdit.cisloKrouzku) >= 1 && parseInt(slepiceToEdit.cisloKrouzku) <= 20) {
+            cisloKrouzkuInput.value = slepiceToEdit.cisloKrouzku;
+        } else {
+            // Pokud je to jiný formát, přidáme speciální možnost
+            const option = document.createElement('option');
+            option.value = slepiceToEdit.cisloKrouzku;
+            option.textContent = slepiceToEdit.cisloKrouzku;
+            cisloKrouzkuInput.appendChild(option);
+            cisloKrouzkuInput.value = slepiceToEdit.cisloKrouzku;
+        }
+    } else {
+        cisloKrouzkuInput.value = '';
+    }
+    
+    porizovaci_cenaInput.value = slepiceToEdit.porizovaci_cena || '';
+    
+    // Skrytí hromadného přidání při editaci
+    if (document.getElementById('hromadne-pridani-section')) {
+        document.getElementById('hromadne-pridani-section').style.display = 'none';
+    }
+    
+    // Aktualizace našeptávače druhů
+    updateDruhyDatalist();
     
     slepiceModal.classList.add('active');
 }
@@ -280,17 +396,41 @@ function validateForm() {
     });
     
     // Kontrola data úmrtí a stáří při úmrtí
-    const datumUmrti = document.getElementById('datumUmrti').value;
-    const stariPriUmrti = document.getElementById('stariPriUmrti').value;
+    const datumUmrti = datumUmrtiInput.value;
     
-    if (datumUmrti && !stariPriUmrti) {
-        document.getElementById('stariPriUmrti').classList.add('error');
-        document.getElementById('stariPriUmrti-error').textContent = 'Zadejte stáří při úmrtí';
-        isValid = false;
-    } else if (!datumUmrti && stariPriUmrti) {
-        document.getElementById('datumUmrti').classList.add('error');
-        document.getElementById('datumUmrti-error').textContent = 'Vyberte datum úmrtí';
-        isValid = false;
+    if (datumUmrti) {
+        // Automatický výpočet stáří při úmrtí, pokud není zadáno
+        if (!stariPriUmrtiInput.value) {
+            calculateStariPriUmrti();
+        }
+        
+        // Ověření, že datum úmrtí je pozdější než datum zakoupení
+        const datumZakoupeni = new Date(datumZakoupeniInput.value);
+        const datumUmrtiDate = new Date(datumUmrti);
+        
+        if (datumUmrtiDate <= datumZakoupeni) {
+            datumUmrtiInput.classList.add('error');
+            document.getElementById('datumUmrti-error').textContent = 'Datum úmrtí musí být pozdější než datum zakoupení';
+            isValid = false;
+        }
+    }
+    
+    // Kontrola hromadného přidání
+    if (hromadnePridaniCheck && hromadnePridaniCheck.checked) {
+        if (!pocetSlepicInput.value || parseInt(pocetSlepicInput.value) < 2) {
+            pocetSlepicInput.classList.add('error');
+            document.getElementById('pocet-slepic-error').textContent = 'Zadejte počet slepic (minimálně 2)';
+            isValid = false;
+        } else {
+            pocetSlepicInput.classList.remove('error');
+            document.getElementById('pocet-slepic-error').textContent = '';
+        }
+        
+        if (!cisloKrouzkuInput.value) {
+            cisloKrouzkuInput.classList.add('error');
+            document.getElementById('cisloKrouzku-error').textContent = 'Pro hromadné přidání musíte zadat číslo prvního kroužku';
+            isValid = false;
+        }
     }
     
     return isValid;
@@ -303,27 +443,60 @@ function saveForm() {
     const slepiceId = slepiceIdInput.value;
     const isEditing = slepiceId !== '';
     
-    const novaSlepice = {
-        id: isEditing ? parseInt(slepiceId) : (slepice.length > 0 ? Math.max(...slepice.map(s => s.id)) + 1 : 1),
-        druh: document.getElementById('druh').value,
-        datumZakoupeni: document.getElementById('datumZakoupeni').value,
-        stariPriZakoupeni: parseInt(document.getElementById('stariPriZakoupeni').value),
-        datumUmrti: document.getElementById('datumUmrti').value || '',
-        stariPriUmrti: document.getElementById('stariPriUmrti').value ? parseInt(document.getElementById('stariPriUmrti').value) : null,
-        barvaKrouzku: document.getElementById('barvaKrouzku').value,
-        cisloKrouzku: document.getElementById('cisloKrouzku').value,
-        porizovaci_cena: document.getElementById('porizovaci_cena').value ? parseInt(document.getElementById('porizovaci_cena').value) : null
+    const baseSlepice = {
+        druh: druhInput.value,
+        datumZakoupeni: datumZakoupeniInput.value,
+        stariPriZakoupeni: parseInt(stariPriZakoupeniInput.value),
+        datumUmrti: datumUmrtiInput.value || '',
+        stariPriUmrti: stariPriUmrtiInput.value ? parseInt(stariPriUmrtiInput.value) : null,
+        barvaKrouzku: barvaKrouzkuInput.value,
+        porizovaci_cena: porizovaci_cenaInput.value ? parseInt(porizovaci_cenaInput.value) : null
     };
     
     if (isEditing) {
         // Aktualizace existující slepice
+        const updatedSlepice = {
+            id: parseInt(slepiceId),
+            ...baseSlepice,
+            cisloKrouzku: cisloKrouzkuInput.value
+        };
+        
         const index = slepice.findIndex(s => s.id === parseInt(slepiceId));
         if (index !== -1) {
-            slepice[index] = novaSlepice;
+            slepice[index] = updatedSlepice;
         }
     } else {
-        // Přidání nové slepice
-        slepice.push(novaSlepice);
+        // Přidání nové slepice nebo hromadné přidání
+        if (hromadnePridaniCheck && hromadnePridaniCheck.checked && pocetSlepicInput.value) {
+            const pocet = parseInt(pocetSlepicInput.value);
+            const startId = slepice.length > 0 ? Math.max(...slepice.map(s => s.id)) + 1 : 1;
+            
+            // Získání základního čísla kroužku
+            let baseKrouzek = parseInt(cisloKrouzkuInput.value);
+            if (isNaN(baseKrouzek)) {
+                baseKrouzek = 1; // Výchozí hodnota, pokud není zadáno číselné číslo kroužku
+            }
+            
+            // Vytvoření zadaného počtu slepic
+            for (let i = 0; i < pocet; i++) {
+                const novaSlepice = {
+                    id: startId + i,
+                    ...baseSlepice,
+                    cisloKrouzku: (baseKrouzek + i).toString()
+                };
+                
+                slepice.push(novaSlepice);
+            }
+        } else {
+            // Přidání jedné slepice
+            const novaSlepice = {
+                id: slepice.length > 0 ? Math.max(...slepice.map(s => s.id)) + 1 : 1,
+                ...baseSlepice,
+                cisloKrouzku: cisloKrouzkuInput.value
+            };
+            
+            slepice.push(novaSlepice);
+        }
     }
     
     // Uložení dat
@@ -357,44 +530,100 @@ function deleteSlepice(id) {
 
 // Event listenery
 document.addEventListener('DOMContentLoaded', () => {
-    // Načtení uložených dat
-    loadData();
-    
-    // Zobrazení dat
-    renderSlepiceTable(slepice);
-    updateStats();
-    
-    // Vyhledávání
-    searchInput.addEventListener('input', () => {
-        const query = searchInput.value.trim();
-        const filteredData = searchSlepice(query);
-        renderSlepiceTable(filteredData);
-    });
-    
-    // Přidání slepice
-    addSlepiceBtn.addEventListener('click', openAddModal);
-    
-    // Zavření modálních oken
-    modalClose.addEventListener('click', () => closeModal(slepiceModal));
-    modalCancel.addEventListener('click', () => closeModal(slepiceModal));
-    deleteModalClose.addEventListener('click', () => closeModal(deleteModal));
-    deleteCancel.addEventListener('click', () => closeModal(deleteModal));
-    
-    // Uložení formuláře
-    modalSave.addEventListener('click', saveForm);
-    
-    // Potvrzení odstranění
-    deleteConfirm.addEventListener('click', () => {
-        const id = parseInt(deleteConfirm.dataset.id);
-        deleteSlepice(id);
-    });
-    
-    // Zavření modálních oken při kliknutí mimo ně
-    window.addEventListener('click', e => {
-        if (e.target === slepiceModal) {
-            closeModal(slepiceModal);
-        } else if (e.target === deleteModal) {
-            closeModal(deleteModal);
-        }
-    });
+   console.log("DOM content loaded, initializing app");
+   
+   // Načtení uložených dat
+   loadData();
+   
+   // Inicializace formulářových prvků
+   if (datumUmrtiInput) {
+       datumUmrtiInput.addEventListener('change', calculateStariPriUmrti);
+   }
+   
+   if (datumZakoupeniInput) {
+       datumZakoupeniInput.addEventListener('change', () => {
+           if (datumUmrtiInput && datumUmrtiInput.value) {
+               calculateStariPriUmrti();
+           }
+       });
+   }
+   
+   if (stariPriZakoupeniInput) {
+       stariPriZakoupeniInput.addEventListener('change', () => {
+           if (datumUmrtiInput && datumUmrtiInput.value) {
+               calculateStariPriUmrti();
+           }
+       });
+   }
+   
+   // Inicializace hromadného přidání
+   if (hromadnePridaniCheck) {
+       hromadnePridaniCheck.addEventListener('change', toggleHromadnePridani);
+   }
+   
+   // Naplnění dropdown čísel kroužků
+   populateCislaKrouzku();
+   
+   // Aktualizace seznamu druhů
+   updateDruhyDatalist();
+   
+   // Zobrazení dat
+   renderSlepiceTable(slepice);
+   updateStats();
+   
+   // Vyhledávání
+   if (searchInput) {
+       searchInput.addEventListener('input', () => {
+           const query = searchInput.value.trim();
+           const filteredData = searchSlepice(query);
+           renderSlepiceTable(filteredData);
+       });
+   }
+   
+   // Přidání slepice
+   if (addSlepiceBtn) {
+       addSlepiceBtn.addEventListener('click', openAddModal);
+   }
+   
+   // Zavření modálních oken
+   if (modalClose) {
+       modalClose.addEventListener('click', () => closeModal(slepiceModal));
+   }
+   
+   if (modalCancel) {
+       modalCancel.addEventListener('click', () => closeModal(slepiceModal));
+   }
+   
+   if (deleteModalClose) {
+       deleteModalClose.addEventListener('click', () => closeModal(deleteModal));
+   }
+   
+   if (deleteCancel) {
+       deleteCancel.addEventListener('click', () => closeModal(deleteModal));
+   }
+   
+   // Uložení formuláře
+   if (modalSave) {
+       modalSave.addEventListener('click', saveForm);
+   }
+   
+   // Potvrzení odstranění
+   if (deleteConfirm) {
+       deleteConfirm.addEventListener('click', () => {
+           const id = parseInt(deleteConfirm.dataset.id);
+           deleteSlepice(id);
+       });
+   }
+   
+   // Zavření modálních oken při kliknutí mimo ně
+   window.addEventListener('click', e => {
+       if (e.target === slepiceModal) {
+           closeModal(slepiceModal);
+       } else if (e.target === deleteModal) {
+           closeModal(deleteModal);
+       }
+   });
+   
+   console.log("App initialization completed");
 });
+                
