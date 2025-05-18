@@ -1,3 +1,135 @@
+// Firebase reference
+const auth = firebase.auth();
+const db = firebase.firestore();
+let currentUser = null;
+
+// Přihlášení pomocí Google účtu
+function signInWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider)
+        .then((result) => {
+            // Úspěšné přihlášení
+            currentUser = result.user;
+            document.getElementById('login-status').textContent = `Přihlášen jako: ${currentUser.displayName}`;
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('logout-section').style.display = 'flex';
+            
+            // Načtení dat uživatele
+            loadUserData();
+        })
+        .catch((error) => {
+            console.error("Chyba při přihlašování: ", error);
+            alert("Nepodařilo se přihlásit. Zkuste to prosím znovu.");
+        });
+}
+
+// Odhlášení
+function signOut() {
+    auth.signOut()
+        .then(() => {
+            currentUser = null;
+            document.getElementById('login-section').style.display = 'flex';
+            document.getElementById('logout-section').style.display = 'none';
+            
+            // Načtení lokálních dat
+            loadData();
+            const groups = groupSlepiceByDate(slepice);
+            renderSlepiceGroups(groups);
+            updateStats();
+        })
+        .catch((error) => {
+            console.error("Chyba při odhlašování: ", error);
+        });
+}
+
+// Načtení dat uživatele z Firebase
+function loadUserData() {
+    if (!currentUser) return;
+    
+    db.collection('users').doc(currentUser.uid).collection('slepice').get()
+        .then((querySnapshot) => {
+            if (!querySnapshot.empty) {
+                const userData = [];
+                querySnapshot.forEach((doc) => {
+                    userData.push(doc.data());
+                });
+                
+                slepice = userData;
+                
+                // Zobrazení dat
+                const groups = groupSlepiceByDate(slepice);
+                renderSlepiceGroups(groups);
+                updateStats();
+                
+                // Uložení do localStorage jako záloha
+                localStorage.setItem('slepice-data', JSON.stringify(slepice));
+            } else {
+                // Pokud uživatel nemá data v cloudu, použijeme lokální, pokud existují
+                loadData();
+                if (slepice.length > 0) {
+                    // Uložíme lokální data do cloudu
+                    saveUserData();
+                }
+                
+                const groups = groupSlepiceByDate(slepice);
+                renderSlepiceGroups(groups);
+                updateStats();
+            }
+        })
+        .catch((error) => {
+            console.error("Chyba při načítání dat: ", error);
+            // Záložní načtení z localStorage
+            loadData();
+            const groups = groupSlepiceByDate(slepice);
+            renderSlepiceGroups(groups);
+            updateStats();
+        });
+}
+
+// Uložení dat uživatele do Firebase
+function saveUserData() {
+    if (!currentUser) return;
+    
+    // Nejprve smažeme existující kolekci
+    const batch = db.batch();
+    
+    db.collection('users').doc(currentUser.uid).collection('slepice').get()
+        .then((querySnapshot) => {
+            querySnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            
+            return batch.commit();
+        })
+        .then(() => {
+            // Nyní přidáme nová data
+            const promises = slepice.map(s => {
+                return db.collection('users').doc(currentUser.uid).collection('slepice').doc(s.id.toString()).set(s);
+            });
+            
+            return Promise.all(promises);
+        })
+        .then(() => {
+            console.log("Data úspěšně uložena do cloudu");
+        })
+        .catch((error) => {
+            console.error("Chyba při ukládání dat: ", error);
+        });
+    
+    // Záložní uložení do localStorage
+    localStorage.setItem('slepice-data', JSON.stringify(slepice));
+}
+
+// Úprava funkce saveData
+function saveData() {
+    // Uložení do localStorage
+    localStorage.setItem('slepice-data', JSON.stringify(slepice));
+    
+    // Pokud je uživatel přihlášen, uložíme data i do cloudu
+    if (currentUser) {
+        saveUserData();
+    }
+}
 // Funkce pro seskupení slepic podle data zakoupení
 function groupSlepiceByDate(slepiceList) {
     const groups = {};
@@ -64,6 +196,43 @@ function groupSlepiceByDate(slepiceList) {
         };
     }).sort((a, b) => new Date(b.datum) - new Date(a.datum)); // Seřazení od nejnovějších
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    // ... (existující kód)
+    
+    // Přihlášení pomocí Google
+    document.getElementById('google-login-btn').addEventListener('click', signInWithGoogle);
+    
+    // Odhlášení
+    document.getElementById('logout-btn').addEventListener('click', signOut);
+    
+    // Kontrola stavu přihlášení při načtení stránky
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            // Uživatel je přihlášen
+            currentUser = user;
+            document.getElementById('login-status').textContent = `Přihlášen jako: ${user.displayName}`;
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('logout-section').style.display = 'flex';
+            
+            // Načtení dat uživatele
+            loadUserData();
+        } else {
+            // Uživatel je odhlášen
+            currentUser = null;
+            document.getElementById('login-section').style.display = 'flex';
+            document.getElementById('logout-section').style.display = 'none';
+            
+            // Načtení lokálních dat
+            loadData();
+            const groups = groupSlepiceByDate(slepice);
+            renderSlepiceGroups(groups);
+            updateStats();
+        }
+    });
+    
+    // ... (zbytek existujícího kódu)
+});
 
 // Funkce pro zobrazení skupin na hlavní stránce
 function renderSlepiceGroups(groups) {
