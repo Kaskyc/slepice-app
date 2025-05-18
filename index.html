@@ -208,6 +208,44 @@
         </div>
     </div>
 
+ <div id="login-container" class="login-container">
+    <div id="login-section" style="display: flex;">
+        <button id="google-login-btn" class="btn btn-primary">
+            <i class="fab fa-google"></i> Přihlásit se Google účtem
+        </button>
+        <p class="login-info">Pro synchronizaci dat mezi zařízeními</p>
+    </div>
+    
+    <div id="logout-section" style="display: none;">
+        <p id="login-status" class="login-status">Přihlášen jako: </p>
+        <button id="logout-btn" class="btn btn-secondary">
+            <i class="fas fa-sign-out-alt"></i> Odhlásit se
+        </button>
+    </div>
+</div>   
+
     <script src="script.js"></script>
+    <!-- Firebase App (Core) -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<!-- Firebase Authentication -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+<!-- Inicializace Firebase -->
+<script>
+  // Konfigurační objekt Firebase - VYPLŇTE VLASTNÍMI ÚDAJI z Firebase konzole
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  // Inicializace Firebase
+  firebase.initializeApp(firebaseConfig);
+</script>
 </body>
 </html>
