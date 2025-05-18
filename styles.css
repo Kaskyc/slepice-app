@@ -448,3 +448,67 @@ tbody tr:hover {
 input[type="date"] {
     min-height: 38px;
 }
+
+/* Styly pro skupiny a jejich detail */
+.group-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.group-row:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.group-header {
+    display: flex;
+    align-items: center;
+}
+
+.btn-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    margin-right: 8px;
+    color: var(--text-secondary);
+}
+
+.detail-container {
+    padding: 10px 20px;
+    background-color: #f9f9f7;
+    border-radius: 4px;
+}
+
+.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.detail-table th {
+    background-color: var(--secondary-light);
+    font-size: 0.75rem;
+    padding: 8px 12px;
+}
+
+.detail-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Styly pro přepínače typu kroužku */
+.radio-group {
+    display: flex;
+    gap: 16px;
+    margin-top: 4px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.radio-label input {
+    margin-right: 6px;
+}
