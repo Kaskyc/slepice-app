@@ -9,11 +9,24 @@
     --surface-color: #FFFFFF;
     --error-color: #BA1A1A;
     --success-color: #0D6E00;
+    --warning-color: #FF9800;
     --text-color: #1A1C18;
     --text-secondary: #44483E;
     --border-color: #E0E4D6;
     --warning-background: #ffebe6;
     --warning-text: #d73a49;
+    
+    /* Barvy kroužků */
+    --ring-red: #E53935;
+    --ring-green: #43A047;
+    --ring-yellow: #FDD835;
+    --ring-blue: #1E88E5;
+    --ring-none: #9E9E9E;
+    
+    /* Barvy statusu skupin */
+    --group-success: #E8F5E9;
+    --group-warning: #FFF3E0;
+    --group-danger: #FFEBEE;
 }
 
 * {
@@ -193,7 +206,7 @@ tbody tr:hover {
 }
 
 .status-active {
-    background-color: #E8F5E9;
+    background-color: var(--group-success);
     color: var(--success-color);
 }
 
@@ -202,12 +215,76 @@ tbody tr:hover {
     color: #616161;
 }
 
+/* Nové styly pro status skupin */
+.group-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.85rem;
+    margin-left: 6px;
+}
+
+.group-status-healthy {
+    background-color: var(--group-success);
+    color: var(--success-color);
+}
+
+.group-status-warning {
+    background-color: var(--group-warning);
+    color: var(--warning-color);
+}
+
+.group-status-danger {
+    background-color: var(--group-danger);
+    color: var(--error-color);
+}
+
 .color-badge {
     display: inline-block;
     width: 12px;
     height: 12px;
     border-radius: 50%;
     margin-right: 6px;
+}
+
+/* Nové styly pro barevné kroužky ve skupinách */
+.ring-color-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ring-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.ring-color-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.ring-red {
+    background-color: var(--ring-red);
+}
+
+.ring-green {
+    background-color: var(--ring-green);
+}
+
+.ring-yellow {
+    background-color: var(--ring-yellow);
+}
+
+.ring-blue {
+    background-color: var(--ring-blue);
+}
+
+.ring-none {
+    background-color: var(--ring-none);
 }
 
 .actions {
@@ -497,6 +574,22 @@ input[type="date"] {
     border-bottom: 1px solid #eee;
 }
 
+/* Styly pro zobrazení stáří - nový dynamický formát */
+.age-display {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.age-value {
+    font-weight: 500;
+}
+
+.age-unit {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
 /* Styly pro přepínače typu kroužku */
 .radio-group {
     display: flex;
@@ -576,4 +669,38 @@ input[type="date"] {
 
 .login-success {
     animation: pulse 0.5s ease-in-out;
+}
+
+/* Checkbox styling */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox-container input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.mt-4 {
+    margin-top: 16px;
+}
+
+/* Error message for same breed restriction */
+.breed-error {
+    background-color: var(--warning-background);
+    color: var(--error-color);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.breed-error i {
+    font-size: 1rem;
 }
