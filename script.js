@@ -151,24 +151,48 @@ function saveUserData() {
     
     console.log("Ukládání dat do Firestore pro uživatele:", currentUser.uid);
     
-    // Přístup po jednotlivých dokumentech pro větší spolehlivost
-    const promises = slepice.map(s => {
-        return db.collection('users').doc(currentUser.uid).collection('slepice').doc(s.id.toString())
-            .set(s)
-            .then(() => {
-                console.log(`Slepice ID ${s.id} úspěšně uložena`);
-            })
-            .catch(error => {
-                console.error(`Chyba při ukládání slepice ID ${s.id}:`, error);
+    // OPRAVA: Nejprve odstraníme všechny záznamy, které už neexistují
+    // Získáme seznam existujících ID v Firestore
+    db.collection('users').doc(currentUser.uid).collection('slepice').get()
+        .then((querySnapshot) => {
+            // Seznam existujících ID v Firestore
+            const firestoreIds = [];
+            querySnapshot.forEach(doc => {
+                firestoreIds.push(doc.id);
             });
-    });
-    
-    Promise.all(promises)
+            
+            // Seznam ID, která máme nyní v paměti
+            const currentIds = slepice.map(s => s.id.toString());
+            
+            // ID, která jsou ve Firestore, ale už nejsou v paměti (byly smazány)
+            const idsToDelete = firestoreIds.filter(id => !currentIds.includes(id));
+            
+            // Odstranění smazaných záznamů z Firestore
+            const deletePromises = idsToDelete.map(id => {
+                console.log(`Odstraňuji záznam s ID ${id} z Firestore`);
+                return db.collection('users').doc(currentUser.uid).collection('slepice').doc(id).delete();
+            });
+            
+            // Uložení aktuálních záznamů do Firestore
+            const savePromises = slepice.map(s => {
+                return db.collection('users').doc(currentUser.uid).collection('slepice').doc(s.id.toString())
+                    .set(s)
+                    .then(() => {
+                        console.log(`Slepice ID ${s.id} úspěšně uložena`);
+                    })
+                    .catch(error => {
+                        console.error(`Chyba při ukládání slepice ID ${s.id}:`, error);
+                    });
+            });
+            
+            // Provedení všech operací
+            return Promise.all([...deletePromises, ...savePromises]);
+        })
         .then(() => {
-            console.log("Všechna data úspěšně uložena do Firestore");
+            console.log("Všechna data úspěšně aktualizována v Firestore");
         })
         .catch((error) => {
-            console.error("Chyba při ukládání dat do Firestore:", error);
+            console.error("Chyba při aktualizaci dat v Firestore:", error);
         });
 }
 
@@ -260,6 +284,7 @@ const datumUmrtiInput = document.getElementById('datumUmrti');
 const stariPriUmrtiInput = document.getElementById('stariPriUmrti');
 const barvaKrouzkuInput = document.getElementById('barvaKrouzku');
 const cisloKrouzkuInput = document.getElementById('cisloKrouzku');
+const stranaKrouzkuInput = document.getElementById('strana-krouzku');
 const porizovaci_cenaInput = document.getElementById('porizovaci_cena');
 const hromadnePridaniCheck = document.getElementById('hromadne-pridani');
 const pocetSlepicInput = document.getElementById('pocet-slepic');
@@ -276,6 +301,20 @@ const deleteSlepiceName = document.getElementById('delete-slepice-name');
 const statTotal = document.getElementById('stat-total');
 const statInvestment = document.getElementById('stat-investment');
 const statHistorical = document.getElementById('stat-historical');
+
+// Funkce pro výpočet a formátování doby od zakoupení
+function calculateTimeFromPurchase(purchaseDate) {
+    if (!purchaseDate) return "-";
+    
+    const today = new Date();
+    const zakoupeni = new Date(purchaseDate);
+    
+    // Výpočet rozdílu v týdnech
+    const rozdilDny = Math.floor((today - zakoupeni) / (1000 * 60 * 60 * 24));
+    const rozdilTydny = Math.floor(rozdilDny / 7);
+    
+    return formatAge(rozdilTydny);
+}
 
 // Funkce pro formátování věku
 function formatAge(weeks) {
@@ -444,6 +483,13 @@ function renderSlepiceGroups(groups) {
             </div>
         `;
         
+        // NOVÁ FUNKCIONALITA: Přidání doby od zakoupení
+        const dobaStat = `
+            <div class="age-display">
+                <span class="age-value">${calculateTimeFromPurchase(group.datum)}</span>
+            </div>
+        `;
+        
         row.innerHTML = `
             <td>
                 <div class="group-header">
@@ -453,7 +499,10 @@ function renderSlepiceGroups(groups) {
                     ${group.druhy}
                 </div>
             </td>
-            <td>${formatDate(group.datum)}</td>
+            <td>
+                ${formatDate(group.datum)}
+                ${dobaStat}
+            </td>
             <td>
                 ${group.pocet} ${statusHTML}
             </td>
@@ -672,11 +721,11 @@ function renderSlepiceTable(data) {
             : `<span class="status status-active">Žije</span>`;
         
         row.innerHTML = `
-            <td>${slepice.druh}</td>
+<td>${slepice.druh}</td>
             <td>
                 ${formatDate(slepice.datumZakoupeni)}
                 <div class="age-display">
-                    <span class="age-value">${formatAge(slepice.stariPriZakoupeni)}</span>
+                    <span class="age-value">${calculateTimeFromPurchase(slepice.datumZakoupeni)}</span>
                 </div>
             </td>
             <td>
@@ -793,7 +842,8 @@ function toggleKrouzekTyp() {
     if (isHromadneEnabled && typStrana) {
         // Pokud je vybráno hromadné přidávání a strana kroužku, zobrazíme alternativní text
         if (document.getElementById('pocet-slepic-error')) {
-            document.getElementById('pocet-slepic-error').textContent = 'Při výběru strany kroužku bude přidán vámi zvolený počet slepic s alternujícími stranami (levá/pravá).';
+            document.getElementById('pocet-slepic-error').textContent = 
+                'Při hromadném přidání budou všechny slepice označeny zvolenou stranou kroužku.';
         }
     } else if (document.getElementById('pocet-slepic-error')) {
         document.getElementById('pocet-slepic-error').textContent = '';
@@ -1070,7 +1120,6 @@ function validateForm() {
             isValid = false;
         } else {
             pocetSlepicInput.classList.remove('error');
-            document.getElementById('pocet-slepic-error').textContent = '';
         }
         
         if (typCislo && !cisloKrouzkuInput.value) {
@@ -1090,11 +1139,11 @@ function validateForm() {
     return isValid;
 }
 
-// Generování alternujících stran pro hromadné přidání
-function generateAlternatingSides(count) {
+// OPRAVA: Generování stejných stran pro hromadné přidání (místo alternujících)
+function generateSameStrany(count, strana) {
     const sides = [];
     for (let i = 0; i < count; i++) {
-        sides.push(i % 2 === 0 ? 'levá' : 'pravá');
+        sides.push(strana);
     }
     return sides;
 }
@@ -1107,6 +1156,7 @@ function saveForm() {
     const isEditing = slepiceId !== '';
     
     const typCislo = document.getElementById('typ-krouzku-cislo').checked;
+    const typStrana = document.getElementById('typ-krouzku-strana').checked;
     
     const baseSlepice = {
         druh: druhInput.value,
@@ -1117,7 +1167,7 @@ function saveForm() {
         barvaKrouzku: barvaKrouzkuInput.value,
         porizovaci_cena: porizovaci_cenaInput.value ? parseInt(porizovaci_cenaInput.value) : null,
         cisloKrouzku: typCislo ? cisloKrouzkuInput.value : '',
-        stranaKrouzku: !typCislo ? document.getElementById('strana-krouzku').value : ''
+        stranaKrouzku: typStrana ? stranaKrouzkuInput.value : ''
     };
     
     if (isEditing) {
@@ -1155,9 +1205,10 @@ function saveForm() {
                     
                     slepice.push(novaSlepice);
                 }
-            } else {
-                // Hromadné přidání se stranami kroužku (alternující strany - levá, pravá, levá, ...)
-                const strany = generateAlternatingSides(pocet);
+            } else if (typStrana) {
+                // OPRAVA: Hromadné přidání se stejnou stranou kroužku
+                const vybranaStrana = stranaKrouzkuInput.value;
+                const strany = generateSameStrany(pocet, vybranaStrana);
                 
                 for (let i = 0; i < pocet; i++) {
                     const novaSlepice = {
@@ -1349,4 +1400,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     console.log("App initialization completed");
-});
+});            
