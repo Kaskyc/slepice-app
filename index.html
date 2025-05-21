@@ -17,16 +17,19 @@
                     </div>
                     <div class="user-info">
                         <div class="user-greeting">Dobrý den</div>
-                        <div class="user-name">Uživatel</div>
+                        <div class="user-name"><span id="user-display-name">Host</span></div>
                     </div>
                 </div>
                 <div class="header-actions">
+                    <button class="action-btn" id="logout-btn" style="display: none;">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
                     <button class="action-btn">
                         <i class="fas fa-cog"></i>
                     </button>
                 </div>
             </div>
-            
+
             <h1>
                 Farm
                 <span class="title-accent">Tracker</span>
@@ -35,349 +38,163 @@
         </div>
     </header>
 
-    <!-- Status Firebase -->
     <div id="firebase-status" class="firebase-status">
-        Firebase není inicializován. Synchronizace dat mezi zařízeními nebude fungovat.
+        Probíhá inicializace Firebase...
     </div>
+    <div id="status-message" class="alert mt-4" style="display: none;"></div>
 
-    <!-- Login kontejner -->
-    <div id="login-container" class="login-container">
-        <div id="login-section">
-            <button id="google-login-btn" class="login-btn">
-                <i class="fab fa-google"></i> Přihlásit se Google účtem
-            </button>
-            <p class="login-info">Pro synchronizaci dat mezi zařízeními</p>
-        </div>
-        
-        <div id="logout-section">
-            <p id="login-status" class="login-status">Přihlášen jako: </p>
-            <button id="logout-btn" class="logout-btn">
-                <i class="fas fa-sign-out-alt"></i> Odhlásit se
-            </button>
-        </div>
-    </div>  
-
-    <div class="container">
-        <!-- Hlavní stránka - Složka -->
-        <div id="main-view" class="main-view">
-            <div class="folder-container">
-                <div class="card folder-card" id="folder-card">
-                    <div class="folder-card-content">
-                        <div class="folder-icon">
-                            <svg class="chicken-icon" viewBox="0 0 600 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M336.5 107.5C336.5 107.5 311 30 371.5 11.5C432 -7 441.5 74 441.5 74C441.5 74 458.5 83 448.5 103C438.5 123 412 131.5 412 131.5" stroke="black" stroke-width="12"/>
-                                <path d="M382.5 267.5C382.5 267.5 356.5 278.5 352 303C347.5 327.5 357 340 357 340" stroke="black" stroke-width="12"/>
-                                <ellipse cx="373" cy="219.5" rx="25" ry="40" fill="white" stroke="black" stroke-width="12"/>
-                                <ellipse cx="371" cy="219.5" rx="12" ry="16.5" fill="black"/>
-                                <ellipse cx="491" cy="219.5" rx="25" ry="40" fill="white" stroke="black" stroke-width="12"/>
-                                <ellipse cx="489" cy="219.5" rx="12" ry="16.5" fill="black"/>
-                                <path d="M429 315.5L450 339" stroke="black" stroke-width="12"/>
-                                <path d="M379 344C379 344 385 354.5 431.5 354.5C478 354.5 484 344 484 344" stroke="black" stroke-width="12"/>
-                                <path d="M223.5 421.5C223.5 421.5 204 310 281 251.5C358 193 486 193 486 193C486 193 551.5 204 551.5 287.5C551.5 371 471 432 471 432" stroke="black" stroke-width="12"/>
-                                <path d="M223.5 421.5C223.5 421.5 190 479 278 550.5C366 622 471 432 471 432" stroke="black" stroke-width="12"/>
-                                <path d="M278 550.5C278 550.5 308 622 345.5 724C383 826 360 833 360 833" stroke="black" stroke-width="12"/>
-                                <path d="M345.5 724C345.5 724 366 749 409 749C452 749 471 724 471 724" stroke="black" stroke-width="12"/>
-                                <path d="M471 724C471 724 496 649 471 546.5C446 444 471 432 471 432" stroke="black" stroke-width="12"/>
-                                <path d="M360 833C360 833 324 864 346.5 864C369 864 383 830 383 830" stroke="black" stroke-width="12"/>
-                                <path d="M417 833C417 833 453 864 430.5 864C408 864 394 830 394 830" stroke="black" stroke-width="12"/>
-                            </svg>
-                        </div>
-                        <h2 class="folder-title">Slepice</h2>
-                        <p class="folder-details">
-                            <span class="folder-stats">
-                                <span class="stat"><i class="fas fa-check-circle"></i> <span id="stat-live-folder">0</span> živých</span>
-                                <span class="stat"><i class="fas fa-history"></i> <span id="stat-dead-folder">0</span> historie</span>
-                            </span>
-                            <i class="fas fa-chevron-right"></i>
-                        </p>
-                    </div>
-                </div>
+    <div id="login-container" class="container mt-4" style="display: none;">
+        <div class="card">
+            <h2>Přihlášení / Registrace</h2>
+            <div class="form-group">
+                <label for="login-email">Email:</label>
+                <input type="email" id="login-email" placeholder="vas@email.cz" required>
             </div>
-        </div>
-
-        <!-- Detailní pohled -->
-        <div id="detail-view" class="detail-view">
-            <div class="detail-header">
-                <button class="back-button" id="back-button">
-                    <i class="fas fa-arrow-left"></i> Zpět
-                </button>
-                <button class="add-btn" id="add-slepice-btn">
-                    <i class="fas fa-plus"></i> Přidat slepici
-                </button>
+            <div class="form-group">
+                <label for="login-password">Heslo:</label>
+                <input type="password" id="login-password" placeholder="minimálně 6 znaků" required>
             </div>
-            
-            <div class="search-container">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="search-input" class="search-input" placeholder="Vyhledat slepici...">
-            </div>
-            
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="stat-card-title">Celkem slepic</div>
-                    <div class="stat-card-value" id="stat-total">0</div>
-                    <div class="stat-card-desc">Aktivních záznamů</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-title">Celková investice</div>
-                    <div class="stat-card-value" id="stat-investment">0 Kč</div>
-                    <div class="stat-card-desc">Pořizovací cena</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-title">Historické záznamy</div>
-                    <div class="stat-card-value" id="stat-historical">0</div>
-                    <div class="stat-card-desc">Ukončených záznamů</div>
-                </div>
-            </div>
-            
-            <h3 class="groups-title">Seznam skupin</h3>
-            
-            <div class="groups-card">
-                <table class="groups-table">
-                    <thead>
-                        <tr>
-                            <th>Druh</th>
-                            <th>Datum zakoupení</th>
-                            <th>Stáří</th>
-                            <th>Počet</th>
-                            <th>Celková cena</th>
-                            <th>Barva kroužků</th>
-                            <th>Akce</th>
-                        </tr>
-                    </thead>
-                    <tbody id="slepice-table-body">
-                        <!-- Dynamicky generovaný obsah -->
-                    </tbody>
-                </table>
-            </div>
+            <button id="login-btn" class="btn btn-primary mt-4">Přihlásit se</button>
+            <button id="register-btn" class="btn btn-secondary mt-2">Registrovat se</button>
+            <p class="mt-4 text-muted">Přihlášením nebo registrací souhlasíte s našimi <a href="#">podmínkami</a>.</p>
         </div>
     </div>
 
-    <!-- Modal pro přidání/editaci slepice -->
-    <div class="modal-backdrop" id="slepice-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title" id="modal-title">Přidat novou slepici</h2>
-                <button class="modal-close" id="modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="slepice-form">
-                    <input type="hidden" id="slepice-id">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="druh" class="required">Druh slepice</label>
-                            <input type="text" id="druh" class="form-control" required list="druhy-datalist">
-                            <datalist id="druhy-datalist"></datalist>
-                            <div class="form-error" id="druh-error"></div>
-                        </div>
-                        <div class="form-group">
-                            <label for="datumZakoupeni" class="required">Datum zakoupení</label>
-                            <input type="date" id="datumZakoupeni" class="form-control" required>
-                            <div class="form-error" id="datumZakoupeni-error"></div>
-                        </div>
-                        <div class="form-group">
-                            <label for="stariPriZakoupeni" class="required">Stáří při zakoupení (týdny)</label>
-                            <input type="number" id="stariPriZakoupeni" class="form-control" min="0" required>
-                            <div class="form-error" id="stariPriZakoupeni-error"></div>
-                        </div>
-                        <div class="form-group">
-                            <label for="datumUmrti">Datum úmrtí</label>
-                            <input type="date" id="datumUmrti" class="form-control">
-                            <div class="form-error" id="datumUmrti-error"></div>
-                        </div>
-                        <div class="form-group" id="stariPriUmrti-group">
-                            <label for="stariPriUmrti">Stáří při úmrtí (týdny)</label>
-                            <input type="number" id="stariPriUmrti" class="form-control" min="0" readonly>
-                            <div class="form-error" id="stariPriUmrti-error"></div>
-                        </div>
-                        <div class="form-group">
-                            <label for="barvaKrouzku">Barva kroužku</label>
-                            <select id="barvaKrouzku" class="form-control">
-                                <option value="">Vyberte barvu</option>
-                                <option value="červená">Červená</option>
-                                <option value="zelená">Zelená</option>
-                                <option value="žlutá">Žlutá</option>
-                                <option value="modrá">Modrá</option>
-                            </select>
-                            <div class="form-error" id="barvaKrouzku-error"></div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Typ označení</label>
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="typ-krouzku" id="typ-krouzku-cislo" checked>
-                                    Číslo kroužku
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="typ-krouzku" id="typ-krouzku-strana">
-                                    Strana kroužku
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="form-group" id="cislo-krouzku-group">
-                            <label for="cisloKrouzku">Číslo kroužku</label>
-                            <select id="cisloKrouzku" class="form-control">
-                                <option value="">Vyberte číslo</option>
-                                <!-- Dynamicky generované možnosti -->
-                            </select>
-                            <div class="form-error" id="cisloKrouzku-error"></div>
-                        </div>
-
-                        <div class="form-group" id="strana-krouzku-group">
-                            <label for="strana-krouzku">Strana kroužku</label>
-                            <select id="strana-krouzku" class="form-control">
-                                <option value="">Vyberte stranu</option>
-                                <option value="levá">Levá</option>
-                                <option value="pravá">Pravá</option>
-                            </select>
-                            <div class="form-error" id="strana-krouzku-error"></div>
-                        </div>
-                        <div class="form-group">
-                            <label for="porizovaci_cena">Pořizovací cena (Kč)</label>
-                            <input type="number" id="porizovaci_cena" class="form-control" min="0">
-                            <div class="form-error" id="porizovaci_cena-error"></div>
-                        </div>
+    <main id="app-container" style="display: none;">
+        <div class="container mt-4">
+            <div class="card">
+                <h2>Přehled slepic</h2>
+                <div class="grid-container">
+                    <div class="info-card">
+                        <i class="fas fa-egg"></i>
+                        <h3>Celkový počet</h3>
+                        <p id="total-chickens">0</p>
                     </div>
-                    
-                    <!-- Sekce pro hromadné přidávání -->
-                    <div id="hromadne-pridani-section" class="mt-4">
-                        <div class="form-group">
-                            <div class="checkbox-container">
-                                <input type="checkbox" id="hromadne-pridani">
-                                <label for="hromadne-pridani">Hromadné přidání více slepic</label>
-                            </div>
-                        </div>
-                        <div id="hromadne-pridani-container">
-                            <div class="form-group">
-                                <label for="pocet-slepic">Počet slepic k přidání</label>
-                                <input type="number" id="pocet-slepic" class="form-control" min="2" value="2">
-                                <div class="form-error" id="pocet-slepic-error"></div>
-                                <small class="form-help">Slepice budou mít stejné hodnoty, pouze se budou lišit číslem kroužku.</small>
-                            </div>
-                        </div>
+                    <div class="info-card">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h3>Průměrné stáří</h3>
+                        <p id="average-age">0 týdnů</p>
                     </div>
-                    
-                    <div class="form-help-text">* Povinné pole</div>
-                </form>
+                    <div class="info-card">
+                        <i class="fas fa-dollar-sign"></i>
+                        <h3>Celkové náklady</h3>
+                        <p id="total-cost">0 Kč</p>
+                    </div>
+                </div>
+
+                <div class="flex-row mt-4">
+                    <input type="text" id="search-input" placeholder="Hledat podle druhu, kroužku...">
+                    <button class="btn btn-primary" id="add-chicken-btn">
+                        <i class="fas fa-plus"></i> Přidat slepici
+                    </button>
+                </div>
+
+                <div class="table-responsive mt-4">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Druh</th>
+                                <th>Zakoupeno (stáří)</th>
+                                <th>Úmrtí (stáří)</th>
+                                <th>Kroužek</th>
+                                <th>Cena</th>
+                                <th>Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chicken-list">
+                            <tr>
+                                <td colspan="6" class="text-muted">Žádné slepice k zobrazení.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="modal-cancel">Zrušit</button>
-                <button type="button" class="btn-primary" id="modal-save">Uložit</button>
+        </div>
+    </main>
+
+    <div id="chicken-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="modal-title">Přidat novou slepici</h2>
+            <form id="chicken-form">
+                <input type="hidden" id="chicken-id">
+                <div class="form-group">
+                    <label for="druh">Druh:</label>
+                    <input type="text" id="druh" required>
+                    <span class="error-message" id="druh-error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="datumZakoupeni">Datum zakoupení:</label>
+                    <input type="date" id="datumZakoupeni" required>
+                    <span class="error-message" id="datumZakoupeni-error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="stariPriZakoupeni">Stáří při zakoupení (týdny):</label>
+                    <input type="number" id="stariPriZakoupeni" min="0" required>
+                    <span class="error-message" id="stariPriZakoupeni-error"></span>
+                </div>
+                <div class="form-group">
+                    <label for="datumUmrti">Datum úmrtí (nepovinné):</label>
+                    <input type="date" id="datumUmrti">
+                    <span class="error-message" id="datumUmrti-error"></span>
+                </div>
+                <div class="form-group" id="stariPriUmrti-group" style="display: none;">
+                    <label for="stariPriUmrti">Stáří při úmrtí (týdny):</label>
+                    <input type="number" id="stariPriUmrti" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="barvaKrouzku">Barva kroužku:</label>
+                    <input type="text" id="barvaKrouzku">
+                </div>
+                <div class="form-group">
+                    <label for="cisloKrouzku">Číslo kroužku:</label>
+                    <input type="text" id="cisloKrouzku">
+                </div>
+                <div class="form-group">
+                    <label for="stranaKrouzku">Strana kroužku (např. levá/pravá):</label>
+                    <input type="text" id="stranaKrouzku">
+                </div>
+                <div class="form-group">
+                    <label for="porizovaci_cena">Pořizovací cena (Kč):</label>
+                    <input type="number" id="porizovaci_cena" min="0" step="0.01" required>
+                    <span class="error-message" id="porizovaci_cena-error"></span>
+                </div>
+                <button type="submit" class="btn btn-primary">Uložit</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="delete-confirm-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Potvrdit smazání</h2>
+            <p>Opravdu chcete smazat tuto slepici?</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="cancel-delete">Zrušit</button>
+                <button type="button" class="btn-danger" id="confirm-delete">Smazat</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal pro potvrzení smazání -->
-    <div class="modal-backdrop" id="delete-modal">
-        <div class="modal modal-confirm">
-            <div class="modal-header">
-                <h2 class="modal-title">Odstranit záznam</h2>
-                <button class="modal-close" id="delete-modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="confirm-icon">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <p>Opravdu chcete odstranit tento záznam?</p>
-                <p id="delete-slepice-name" class="delete-name"></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="delete-cancel">Zrušit</button>
-                <button type="button" class="btn-danger" id="delete-confirm">Odstranit</button>
+    <div id="group-action-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Hromadné akce</h2>
+            <p>Tato funkce je zatím ve vývoji. Brzy k dispozici!</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" id="group-action-close">OK</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal pro úpravu celé skupiny -->
-    <div class="modal-backdrop" id="group-edit-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Upravit skupinu</h2>
-                <button class="modal-close" id="group-edit-modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="group-edit-form">
-                    <input type="hidden" id="group-date">
-                    <div class="form-group">
-                        <label for="group-druh" class="required">Druh slepice</label>
-                        <input type="text" id="group-druh" class="form-control" required list="druhy-datalist-group">
-                        <datalist id="druhy-datalist-group"></datalist>
-                        <div class="form-error" id="group-druh-error"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="group-barvaKrouzku">Barva kroužku</label>
-                        <select id="group-barvaKrouzku" class="form-control">
-                            <option value="">Beze změny</option>
-                            <option value="červená">Červená</option>
-                            <option value="zelená">Zelená</option>
-                            <option value="žlutá">Žlutá</option>
-                            <option value="modrá">Modrá</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="group-porizovaci_cena">Pořizovací cena (Kč)</label>
-                        <input type="number" id="group-porizovaci_cena" class="form-control" min="0" placeholder="Beze změny">
-                    </div>
-                    <div class="form-help-text mb-4">* Povinné pole</div>
-                    <div class="alert">
-                        <i class="fas fa-info-circle"></i>
-                        <p>Úprava se projeví u všech slepic ve skupině. Prázdné hodnoty nebudou změněny.</p>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="group-edit-cancel">Zrušit</button>
-                <button type="button" class="btn-primary" id="group-edit-save">Uložit změny</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal pro potvrzení smazání skupiny -->
-    <div class="modal-backdrop" id="group-delete-modal">
-        <div class="modal modal-confirm">
-            <div class="modal-header">
-                <h2 class="modal-title">Odstranit celou skupinu</h2>
-                <button class="modal-close" id="group-delete-modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="confirm-icon danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <p>Opravdu chcete odstranit celou skupinu slepic?</p>
-                <p id="group-delete-name" class="delete-name"></p>
-                <div class="alert danger">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <p>Tato akce odstraní všechny slepice v této skupině a nelze ji vrátit zpět!</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="group-delete-cancel">Zrušit</button>
-                <button type="button" class="btn-danger" id="group-delete-confirm">Odstranit skupinu</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Firebase App (Core) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <!-- Firebase Authentication -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <!-- Firebase Firestore -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-    <!-- Inicializace Firebase -->
     <script>
         // Konfigurační objekt Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyAP-ctKvmvhfmZ0XrB4SSIECDALEBP3QNE",
+            apiKey: "AIzaSyAP-ctKvmvhfmZ0XrB4SSIECDALEBP3QNE", // ZDE DOPLŇTE SVŮJ API KLÍČ
             authDomain: "evidence-chovu-slepic.firebaseapp.com",
             projectId: "evidence-chovu-slepic",
             storageBucket: "evidence-chovu-slepic.appspot.com",
@@ -386,16 +203,20 @@
         };
 
         // Inicializace Firebase
+        let firebaseApp;
         try {
-            firebase.initializeApp(firebaseConfig);
+            firebaseApp = firebase.initializeApp(firebaseConfig);
             console.log("Firebase úspěšně inicializován");
+            document.getElementById('firebase-status').textContent = 'Firebase je inicializován a připraven k synchronizaci.';
+            document.getElementById('firebase-status').classList.remove('firebase-status');
+            document.getElementById('firebase-status').classList.add('firebase-status-active');
         } catch (error) {
             console.error("Chyba při inicializaci Firebase:", error);
-            document.getElementById('firebase-status').style.display = 'block';
+            document.getElementById('firebase-status').textContent = 'Chyba při inicializaci Firebase: ' + error.message;
+            document.getElementById('firebase-status').classList.remove('firebase-status');
+            document.getElementById('firebase-status').classList.add('firebase-status-error');
         }
     </script>
-
-    <!-- Vlastní skripty - musí být až po Firebase -->
     <script src="script.js"></script>
 </body>
 </html>
