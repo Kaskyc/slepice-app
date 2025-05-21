@@ -539,11 +539,3 @@ function filterChickens() {
     }
 }
 
-// Skupinové akce (zatím neimplementované, jen modal)
-document.getElementById('group-action-btn')?.addEventListener('click', () => {
-    document.getElementById('group-action-modal').classList.add('show');
-});
-
-document.getElementById('group-action-close')?.addEventListener('click', () => {
-    document.getElementById('group-action-modal').classList.remove('show');
-});
