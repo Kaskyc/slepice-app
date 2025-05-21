@@ -3,152 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farm Tracker</title>
+    <title>Evidence chovu slepic</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
-        <div class="header-content">
-            <div class="header-top">
-                <div class="user-profile">
-                    <div class="user-avatar">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="user-info">
-                        <div class="user-greeting">Dobrý den</div>
-                        <div class="user-name">Uživatel</div>
-                    </div>
-                </div>
-                <div class="header-actions">
-                    <button class="action-btn">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <h1>
-                Farm
-                <span class="title-accent">Tracker</span>
-            </h1>
-            <p class="subtitle">Správa vašeho chovu na jednom místě</p>
-        </div>
+        <h1>Evidence chovu slepic</h1>
     </header>
 
     <!-- Status Firebase -->
-    <div id="firebase-status" class="firebase-status">
+    <div id="firebase-status" style="display: none; background-color: #ffebe6; color: #d73a49; padding: 10px; margin: 0 20px 10px; border-radius: 4px;">
         Firebase není inicializován. Synchronizace dat mezi zařízeními nebude fungovat.
     </div>
 
     <!-- Login kontejner -->
     <div id="login-container" class="login-container">
-        <div id="login-section">
-            <button id="google-login-btn" class="login-btn">
+        <div id="login-section" style="display: flex;">
+            <button id="google-login-btn" class="btn btn-primary">
                 <i class="fab fa-google"></i> Přihlásit se Google účtem
             </button>
             <p class="login-info">Pro synchronizaci dat mezi zařízeními</p>
         </div>
         
-        <div id="logout-section">
+        <div id="logout-section" style="display: none;">
             <p id="login-status" class="login-status">Přihlášen jako: </p>
-            <button id="logout-btn" class="logout-btn">
+            <button id="logout-btn" class="btn btn-secondary">
                 <i class="fas fa-sign-out-alt"></i> Odhlásit se
             </button>
         </div>
     </div>  
 
     <div class="container">
-        <!-- Hlavní stránka - Složka -->
-        <div id="main-view" class="main-view">
-            <div class="folder-container">
-                <div class="card folder-card" id="folder-card">
-                    <div class="folder-card-content">
-                        <div class="folder-icon">
-                            <svg class="chicken-icon" viewBox="0 0 600 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M336.5 107.5C336.5 107.5 311 30 371.5 11.5C432 -7 441.5 74 441.5 74C441.5 74 458.5 83 448.5 103C438.5 123 412 131.5 412 131.5" stroke="black" stroke-width="12"/>
-                                <path d="M382.5 267.5C382.5 267.5 356.5 278.5 352 303C347.5 327.5 357 340 357 340" stroke="black" stroke-width="12"/>
-                                <ellipse cx="373" cy="219.5" rx="25" ry="40" fill="white" stroke="black" stroke-width="12"/>
-                                <ellipse cx="371" cy="219.5" rx="12" ry="16.5" fill="black"/>
-                                <ellipse cx="491" cy="219.5" rx="25" ry="40" fill="white" stroke="black" stroke-width="12"/>
-                                <ellipse cx="489" cy="219.5" rx="12" ry="16.5" fill="black"/>
-                                <path d="M429 315.5L450 339" stroke="black" stroke-width="12"/>
-                                <path d="M379 344C379 344 385 354.5 431.5 354.5C478 354.5 484 344 484 344" stroke="black" stroke-width="12"/>
-                                <path d="M223.5 421.5C223.5 421.5 204 310 281 251.5C358 193 486 193 486 193C486 193 551.5 204 551.5 287.5C551.5 371 471 432 471 432" stroke="black" stroke-width="12"/>
-                                <path d="M223.5 421.5C223.5 421.5 190 479 278 550.5C366 622 471 432 471 432" stroke="black" stroke-width="12"/>
-                                <path d="M278 550.5C278 550.5 308 622 345.5 724C383 826 360 833 360 833" stroke="black" stroke-width="12"/>
-                                <path d="M345.5 724C345.5 724 366 749 409 749C452 749 471 724 471 724" stroke="black" stroke-width="12"/>
-                                <path d="M471 724C471 724 496 649 471 546.5C446 444 471 432 471 432" stroke="black" stroke-width="12"/>
-                                <path d="M360 833C360 833 324 864 346.5 864C369 864 383 830 383 830" stroke="black" stroke-width="12"/>
-                                <path d="M417 833C417 833 453 864 430.5 864C408 864 394 830 394 830" stroke="black" stroke-width="12"/>
-                            </svg>
-                        </div>
-                        <h2 class="folder-title">Slepice</h2>
-                        <p class="folder-details">
-                            <span class="folder-stats">
-                                <span class="stat"><i class="fas fa-check-circle"></i> <span id="stat-live-folder">0</span> živých</span>
-                                <span class="stat"><i class="fas fa-history"></i> <span id="stat-dead-folder">0</span> historie</span>
-                            </span>
-                            <i class="fas fa-chevron-right"></i>
-                        </p>
-                    </div>
-                </div>
+        <div class="controls">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Vyhledat slepici...">
+            </div>
+            <button class="btn btn-primary" id="add-slepice-btn">
+                <i class="fas fa-plus"></i> Přidat slepici
+            </button>
+        </div>
+
+        <div class="stats-cards">
+            <div class="stat-card">
+                <h3>Celkem slepic</h3>
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-description">Aktivních záznamů</div>
+            </div>
+            <div class="stat-card">
+                <h3>Celková investice</h3>
+                <div class="stat-value" id="stat-investment">0 Kč</div>
+                <div class="stat-description">Pořizovací cena všech slepic</div>
+            </div>
+            <div class="stat-card">
+                <h3>Historické záznamy</h3>
+                <div class="stat-value" id="stat-historical">0</div>
+                <div class="stat-description">Ukončených záznamů</div>
             </div>
         </div>
 
-        <!-- Detailní pohled -->
-        <div id="detail-view" class="detail-view">
-            <div class="detail-header">
-                <button class="back-button" id="back-button">
-                    <i class="fas fa-arrow-left"></i> Zpět
-                </button>
-                <button class="add-btn" id="add-slepice-btn">
-                    <i class="fas fa-plus"></i> Přidat slepici
-                </button>
-            </div>
-            
-            <div class="search-container">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="search-input" class="search-input" placeholder="Vyhledat slepici...">
-            </div>
-            
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="stat-card-title">Celkem slepic</div>
-                    <div class="stat-card-value" id="stat-total">0</div>
-                    <div class="stat-card-desc">Aktivních záznamů</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-title">Celková investice</div>
-                    <div class="stat-card-value" id="stat-investment">0 Kč</div>
-                    <div class="stat-card-desc">Pořizovací cena</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card-title">Historické záznamy</div>
-                    <div class="stat-card-value" id="stat-historical">0</div>
-                    <div class="stat-card-desc">Ukončených záznamů</div>
-                </div>
-            </div>
-            
-            <h3 class="groups-title">Seznam skupin</h3>
-            
-            <div class="groups-card">
-                <table class="groups-table">
-                    <thead>
-                        <tr>
-                            <th>Druh</th>
-                            <th>Datum zakoupení</th>
-                            <th>Stáří</th>
-                            <th>Počet</th>
-                            <th>Celková cena</th>
-                            <th>Barva kroužků</th>
-                            <th>Akce</th>
-                        </tr>
-                    </thead>
-                    <tbody id="slepice-table-body">
-                        <!-- Dynamicky generovaný obsah -->
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Druh</th>
+                        <th>Datum zakoupení</th>
+                        <th>Počet</th>
+                        <th>Celková cena</th>
+                        <th>Barva kroužků</th>
+                        <th>Čísla/Strany</th>
+                        <th>Akce</th>
+                    </tr>
+                </thead>
+                <tbody id="slepice-table-body">
+                    <!-- Skupiny slepic budou dynamicky vloženy pomocí JS -->
+                </tbody>
+            </table>   
         </div>
     </div>
 
@@ -164,6 +95,7 @@
             <div class="modal-body">
                 <form id="slepice-form">
                     <input type="hidden" id="slepice-id">
+                    <input type="hidden" id="originalDruh">
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="druh" class="required">Druh slepice</label>
@@ -186,7 +118,7 @@
                             <input type="date" id="datumUmrti" class="form-control">
                             <div class="form-error" id="datumUmrti-error"></div>
                         </div>
-                        <div class="form-group" id="stariPriUmrti-group">
+                        <div class="form-group" id="stariPriUmrti-group" style="display: none;">
                             <label for="stariPriUmrti">Stáří při úmrtí (týdny)</label>
                             <input type="number" id="stariPriUmrti" class="form-control" min="0" readonly>
                             <div class="form-error" id="stariPriUmrti-error"></div>
@@ -194,7 +126,7 @@
                         <div class="form-group">
                             <label for="barvaKrouzku">Barva kroužku</label>
                             <select id="barvaKrouzku" class="form-control">
-                                <option value="">Vyberte barvu</option>
+                                <option value="">Žádná</option>
                                 <option value="červená">Červená</option>
                                 <option value="zelená">Zelená</option>
                                 <option value="žlutá">Žlutá</option>
@@ -221,12 +153,12 @@
                             <label for="cisloKrouzku">Číslo kroužku</label>
                             <select id="cisloKrouzku" class="form-control">
                                 <option value="">Vyberte číslo</option>
-                                <!-- Dynamicky generované možnosti -->
+                                <!-- Čísla 1-20 budou přidána dynamicky -->
                             </select>
                             <div class="form-error" id="cisloKrouzku-error"></div>
                         </div>
 
-                        <div class="form-group" id="strana-krouzku-group">
+                        <div class="form-group" id="strana-krouzku-group" style="display: none;">
                             <label for="strana-krouzku">Strana kroužku</label>
                             <select id="strana-krouzku" class="form-control">
                                 <option value="">Vyberte stranu</option>
@@ -242,6 +174,12 @@
                         </div>
                     </div>
                     
+                    <!-- Sekce pro kontrolu stejného druhu -->
+                    <div id="breed-restriction-error" class="breed-error" style="display: none;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Upozornění: Všechny slepice ve skupině musí být stejného druhu.</span>
+                    </div>
+                    
                     <!-- Sekce pro hromadné přidávání -->
                     <div id="hromadne-pridani-section" class="mt-4">
                         <div class="form-group">
@@ -250,29 +188,29 @@
                                 <label for="hromadne-pridani">Hromadné přidání více slepic</label>
                             </div>
                         </div>
-                        <div id="hromadne-pridani-container">
+                        <div id="hromadne-pridani-container" style="display: none;">
                             <div class="form-group">
                                 <label for="pocet-slepic">Počet slepic k přidání</label>
                                 <input type="number" id="pocet-slepic" class="form-control" min="2" value="2">
                                 <div class="form-error" id="pocet-slepic-error"></div>
-                                <small class="form-help">Slepice budou mít stejné hodnoty, pouze se budou lišit číslem kroužku.</small>
+                                <small class="form-text text-muted">Slepice budou mít stejné hodnoty, pouze se budou lišit označením.</small>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="form-help-text">* Povinné pole</div>
+                    <div class="form-help">* Povinné pole</div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="modal-cancel">Zrušit</button>
-                <button type="button" class="btn-primary" id="modal-save">Uložit</button>
+                <button type="button" class="btn btn-secondary" id="modal-cancel">Zrušit</button>
+                <button type="button" class="btn btn-primary" id="modal-save">Uložit</button>
             </div>
         </div>
     </div>
 
     <!-- Modal pro potvrzení smazání -->
     <div class="modal-backdrop" id="delete-modal">
-        <div class="modal modal-confirm">
+        <div class="modal confirm-delete">
             <div class="modal-header">
                 <h2 class="modal-title">Odstranit záznam</h2>
                 <button class="modal-close" id="delete-modal-close">
@@ -280,88 +218,13 @@
                 </button>
             </div>
             <div class="modal-body">
-                <div class="confirm-icon">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
+                <i class="fas fa-exclamation-triangle"></i>
                 <p>Opravdu chcete odstranit tento záznam?</p>
-                <p id="delete-slepice-name" class="delete-name"></p>
+                <p id="delete-slepice-name"></p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="delete-cancel">Zrušit</button>
-                <button type="button" class="btn-danger" id="delete-confirm">Odstranit</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal pro úpravu celé skupiny -->
-    <div class="modal-backdrop" id="group-edit-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Upravit skupinu</h2>
-                <button class="modal-close" id="group-edit-modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="group-edit-form">
-                    <input type="hidden" id="group-date">
-                    <div class="form-group">
-                        <label for="group-druh" class="required">Druh slepice</label>
-                        <input type="text" id="group-druh" class="form-control" required list="druhy-datalist-group">
-                        <datalist id="druhy-datalist-group"></datalist>
-                        <div class="form-error" id="group-druh-error"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="group-barvaKrouzku">Barva kroužku</label>
-                        <select id="group-barvaKrouzku" class="form-control">
-                            <option value="">Beze změny</option>
-                            <option value="červená">Červená</option>
-                            <option value="zelená">Zelená</option>
-                            <option value="žlutá">Žlutá</option>
-                            <option value="modrá">Modrá</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="group-porizovaci_cena">Pořizovací cena (Kč)</label>
-                        <input type="number" id="group-porizovaci_cena" class="form-control" min="0" placeholder="Beze změny">
-                    </div>
-                    <div class="form-help-text mb-4">* Povinné pole</div>
-                    <div class="alert">
-                        <i class="fas fa-info-circle"></i>
-                        <p>Úprava se projeví u všech slepic ve skupině. Prázdné hodnoty nebudou změněny.</p>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="group-edit-cancel">Zrušit</button>
-                <button type="button" class="btn-primary" id="group-edit-save">Uložit změny</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal pro potvrzení smazání skupiny -->
-    <div class="modal-backdrop" id="group-delete-modal">
-        <div class="modal modal-confirm">
-            <div class="modal-header">
-                <h2 class="modal-title">Odstranit celou skupinu</h2>
-                <button class="modal-close" id="group-delete-modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="confirm-icon danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <p>Opravdu chcete odstranit celou skupinu slepic?</p>
-                <p id="group-delete-name" class="delete-name"></p>
-                <div class="alert danger">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <p>Tato akce odstraní všechny slepice v této skupině a nelze ji vrátit zpět!</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" id="group-delete-cancel">Zrušit</button>
-                <button type="button" class="btn-danger" id="group-delete-confirm">Odstranit skupinu</button>
+                <button type="button" class="btn btn-secondary" id="delete-cancel">Zrušit</button>
+                <button type="button" class="btn btn-danger" id="delete-confirm">Odstranit</button>
             </div>
         </div>
     </div>
