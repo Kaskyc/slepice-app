@@ -77,6 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
     auth = firebase.auth();
     db = firebase.firestore();
 
+    // Vynutíme skrytí modalů na začátku, pokud by z nějakého důvodu nefungoval inline style
+    chickenModal.classList.remove('show');
+    deleteConfirmModal.classList.remove('show');
+    document.getElementById('group-action-modal').classList.remove('show'); // A ujistíme se i pro tento modal
+
     // Sledujeme stav autentizace uživatele
     auth.onAuthStateChanged(user => {
         if (user) {
@@ -91,8 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             currentUser = null;
             userDisplayName.textContent = 'Host';
-            loginContainer.style.display = 'block';
-            appContainer.style.display = 'none';
+            loginContainer.style.display = 'block'; // Zobrazit login formulář
+            appContainer.style.display = 'none'; // Skrýt aplikaci
             logoutBtn.style.display = 'none';
             chickenCollectionRef = null;
             chickenList.innerHTML = '<tr><td colspan="6" class="text-muted text-center">Pro zobrazení dat se prosím přihlaste.</td></tr>';
@@ -101,6 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
             totalCostElement.textContent = '0 Kč';
             showStatusMessage('Odhlášeno. Prosím přihlaste se.', 'info');
         }
+        // Aktualizujeme stav Firebase status zprávy i zde
+        firebaseStatusDiv.textContent = 'Firebase je inicializován a připraven k synchronizaci.';
+        firebaseStatusDiv.classList.remove('firebase-status');
+        firebaseStatusDiv.classList.add('firebase-status-active');
     });
 
     // Event listenery pro přihlášení a registraci
