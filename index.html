@@ -191,32 +191,29 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-    <script>
-        // Konfigurační objekt Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyAP-ctKvmvhfmZ0XrB4SSIECDALEBP3QNE", // ZDE DOPLŇTE SVŮJ API KLÍČ
-            authDomain: "evidence-chovu-slepic.firebaseapp.com",
-            projectId: "evidence-chovu-slepic",
-            storageBucket: "evidence-chovu-slepic.appspot.com",
-            messagingSenderId: "815420659883",
-            appId: "1:815420659883:web:6816a39fc0b8af1f1ebfee"
-        };
+<script>
+    // Konfigurační objekt Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyAP-ctKvmvhfmZ0XrB4SSIECDALEBP3QNE", // ZDE DOPLŇTE SVŮJ API KLÍČ
+        authDomain: "evidence-chovu-slepic.firebaseapp.com",
+        projectId: "evidence-chovu-slepic",
+        storageBucket: "evidence-chovu-slepic.appspot.com",
+        messagingSenderId: "815420659883",
+        appId: "1:815420659883:web:6816a39fc0b8af1f1ebfee"
+    };
 
-        // Inicializace Firebase
-        let firebaseApp;
-        try {
-            firebaseApp = firebase.initializeApp(firebaseConfig);
-            console.log("Firebase úspěšně inicializován");
-            document.getElementById('firebase-status').textContent = 'Firebase je inicializován a připraven k synchronizaci.';
-            document.getElementById('firebase-status').classList.remove('firebase-status');
-            document.getElementById('firebase-status').classList.add('firebase-status-active');
-        } catch (error) {
-            console.error("Chyba při inicializaci Firebase:", error);
-            document.getElementById('firebase-status').textContent = 'Chyba při inicializaci Firebase: ' + error.message;
-            document.getElementById('firebase-status').classList.remove('firebase-status');
-            document.getElementById('firebase-status').classList.add('firebase-status-error');
-        }
-    </script>
+    // Inicializace Firebase
+    let firebaseApp; // <--- tato deklarace je v pořádku
+    try {
+        firebaseApp = firebase.initializeApp(firebaseConfig); // <--- tato inicializace je v pořádku
+        console.log("Firebase úspěšně inicializován");
+        // Tady chybí nastavení DOM elementů pro status message
+        // a zobrazení login containeru
+    } catch (error) {
+        console.error("Chyba při inicializaci Firebase:", error);
+        // Tady chybí nastavení DOM elementů pro status message
+    }
+</script>
     <script src="script.js"></script>
 </body>
 </html>
