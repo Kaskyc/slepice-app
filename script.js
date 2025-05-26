@@ -1,16 +1,10 @@
-// Globální proměnné pro Firebase a data
+// Globální proměnné pro Firebase
 let auth, db, currentUser;
-let slepice = []; // Pole pro ukládání dat slepic
-let userId = null; // Zavedení proměnné pro userId
-
-// Získání globálních proměnných pro appId (z prostředí Canvas)
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // Inicializace Firebase reference
 function initFirebase() {
     try {
         console.log("Inicializace Firebase referencí...");
-        // Kontrola, zda je Firebase již inicializován v globálním objektu window
         if (typeof firebase !== 'undefined' && firebase.app) {
             auth = firebase.auth();
             db = firebase.firestore();
@@ -18,11 +12,9 @@ function initFirebase() {
             // Kontrola stavu přihlášení při inicializaci
             auth.onAuthStateChanged((user) => {
                 if (user) {
-                    console.log("Uživatel přihlášen:", user.displayName || user.uid);
+                    console.log("Uživatel přihlášen:", user.displayName);
                     currentUser = user;
-                    userId = user.uid; // Nastavení userId
-                    document.getElementById('login-status').textContent = `Přihlášen jako: ${user.displayName || 'Anonymní uživatel'}`;
-                    document.getElementById('user-id-display').textContent = `ID uživatele: ${userId}`;
+                    document.getElementById('login-status').textContent = `Přihlášen jako: ${user.displayName}`;
                     document.getElementById('login-section').style.display = 'none';
                     document.getElementById('logout-section').style.display = 'flex';
                     
@@ -31,520 +23,1330 @@ function initFirebase() {
                 } else {
                     console.log("Žádný přihlášený uživatel");
                     currentUser = null;
-                    // Pro anonymní uživatele generujeme unikátní ID pro lokální data
-                    userId = crypto.randomUUID(); 
                     document.getElementById('login-section').style.display = 'flex';
                     document.getElementById('logout-section').style.display = 'none';
-                    document.getElementById('login-status').textContent = '';
-                    document.getElementById('user-id-display').textContent = `ID uživatele: ${userId} (anonymní)`; // Zobrazit anonymní ID
                     
-                    // Načtení lokálních dat (pro neprihlaseneho uzivatele nebo prvni spusteni)
-                    loadDataLocally();
+                    // Načtení lokálních dat
+                    loadData();
+                    const groups = groupSlepiceByDate(slepice);
+                    renderSlepiceGroups(groups);
+                    updateStats();
                 }
-                // Aktualizovat UI po kontrole stavu přihlášení
-                updateUIBasedOnLoginState(user); 
             });
-
-            // Pokus o přihlášení pomocí custom tokenu, pokud je k dispozici
-            // __initial_auth_token je globální proměnná poskytovaná Canvas prostředím
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                auth.signInWithCustomToken(__initial_auth_token)
-                    .then(() => console.log("Přihlášení pomocí custom tokenu úspěšné."))
-                    .catch(error => console.error("Chyba při přihlašování custom tokenem:", error));
-            } else {
-                // Pokud není custom token, přihlásit anonymně (pokud již není přihlášen)
-                if (!auth.currentUser) {
-                    auth.signInAnonymously()
-                        .then(() => console.log("Anonymní přihlášení úspěšné."))
-                        .catch(error => console.error("Chyba při anonymním přihlašování:", error));
-                }
+            
+            if (document.getElementById('firebase-status')) {
+                document.getElementById('firebase-status').style.display = 'none';
             }
-
+            
+            return true;
         } else {
-            console.error("Firebase není inicializován v okně. Ujistěte se, že jsou načteny Firebase SDK.");
-            document.getElementById('firebase-status').style.display = 'block';
+            throw new Error("Firebase není dostupný");
         }
     } catch (error) {
-        console.error("Chyba při inicializaci Firebase referencí:", error);
-        document.getElementById('firebase-status').style.display = 'block';
+        console.error("Chyba při inicializaci Firebase:", error);
+        if (document.getElementById('firebase-status')) {
+            document.getElementById('firebase-status').style.display = 'block';
+        }
+        return false;
     }
 }
 
-// Funkce pro načítání dat z Firestore (používá onSnapshot pro real-time aktualizace)
+// Přihlášení pomocí Google účtu
+function signInWithGoogle() {
+    try {
+        console.log("Pokus o přihlášení pomocí Google...");
+        if (!auth) {
+            console.error("Firebase Auth není inicializován!");
+            alert("Nepodařilo se inicializovat Firebase Auth. Zkuste obnovit stránku.");
+            return;
+        }
+        
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider)
+            .then((result) => {
+                console.log("Přihlášení úspěšné:", result.user.displayName);
+                // onAuthStateChanged se postará o aktualizaci UI
+            })
+            .catch((error) => {
+                console.error("Chyba při přihlašování:", error);
+                alert("Nepodařilo se přihlásit: " + error.message);
+            });
+    } catch (error) {
+        console.error("Chyba při pokusu o přihlášení:", error);
+        alert("Nastala chyba při přihlašování: " + error.message);
+    }
+}
+
+// Odhlášení
+function signOut() {
+    if (!auth) return;
+    
+    auth.signOut()
+        .then(() => {
+            console.log("Odhlášení úspěšné");
+            // onAuthStateChanged se postará o aktualizaci UI
+        })
+        .catch((error) => {
+            console.error("Chyba při odhlašování:", error);
+            alert("Chyba při odhlašování: " + error.message);
+        });
+}
+
+// Načtení dat uživatele z Firebase
 function loadUserData() {
-    if (!db || !currentUser) {
-        console.log("Firestore nebo uživatel není k dispozici pro načtení dat.");
+    if (!currentUser || !db) {
+        console.error("Nelze načíst data - uživatel nebo databáze nejsou k dispozici");
         return;
     }
-    // Cesta ke kolekci pro konkrétního uživatele
-    const userSlepiceRef = db.collection(`artifacts/${appId}/users/${currentUser.uid}/slepice`);
-
-    // Použití onSnapshot pro real-time aktualizace
-    userSlepiceRef.onSnapshot(snapshot => {
-        slepice = [];
-        snapshot.forEach(doc => {
-            slepice.push({ id: doc.id, ...doc.data() });
-        });
-        const groups = groupSlepiceByDate(slepice);
-        renderSlepiceGroups(groups);
-        updateSummary();
-        console.log("Data z Firestore načtena a aktualizována (real-time).");
-    }, error => {
-        console.error("Chyba při real-time načítání dat z Firestore:", error);
-    });
-}
-
-// Funkce pro načítání dat z lokálního úložiště (pro anonymní uživatele nebo offline režim)
-function loadDataLocally() {
-    const storedSlepice = localStorage.getItem('slepice');
-    if (storedSlepice) {
-        slepice = JSON.parse(storedSlepice);
-    } else {
-        slepice = [];
-    }
-    const groups = groupSlepiceByDate(slepice);
-    renderSlepiceGroups(groups);
-    updateSummary();
-    console.log("Data načtena z lokálního úložiště.");
-}
-
-// Funkce pro ukládání dat do lokálního úložiště
-function saveDataLocally() {
-    localStorage.setItem('slepice', JSON.stringify(slepice));
-    console.log("Data uložena do lokálního úložiště.");
-}
-
-
-// Funkce pro přidání/úpravu slepice
-async function saveSlepice(slepiceData) {
-    if (currentUser && db) {
-        // Přihlášený uživatel, ukládáme do Firestore
-        const slepiceRef = db.collection(`artifacts/${appId}/users/${currentUser.uid}/slepice`);
-        if (slepiceData.id) {
-            // Úprava existující slepice
-            await slepiceRef.doc(slepiceData.id).update(slepiceData);
-            console.log("Slepice aktualizována v Firestore:", slepiceData.id);
-        } else {
-            // Přidání nové slepice
-            await slepiceRef.add(slepiceData);
-            console.log("Nová slepice přidána do Firestore.");
-        }
-    } else {
-        // Anonymní uživatel, ukládáme lokálně
-        if (slepiceData.id) {
-            // Úprava existující slepice
-            const index = slepice.findIndex(s => s.id === slepiceData.id);
-            if (index !== -1) {
-                slepice[index] = { ...slepice[index], ...slepiceData };
-            }
-        } else {
-            // Přidání nové slepice s lokálním ID
-            slepiceData.id = Date.now().toString(); // Jednoduché lokální ID jako string
-            slepice.push(slepiceData);
-        }
-        saveDataLocally();
-    }
-    closeModal(slepiceModal);
-}
-
-// Funkce pro odstranění slepice
-async function deleteSlepice(id) {
-    if (currentUser && db) {
-        // Přihlášený uživatel, mažeme z Firestore
-        await db.collection(`artifacts/${appId}/users/${currentUser.uid}/slepice`).doc(id).delete();
-        console.log("Slepice odstraněna z Firestore:", id);
-    } else {
-        // Anonymní uživatel, mažeme lokálně
-        slepice = slepice.filter(s => s.id !== id);
-        saveDataLocally();
-    }
-    closeModal(deleteModal);
-}
-
-// Funkce pro smazání celé složky (všech slepic)
-async function deleteAllSlepice() {
-    if (currentUser && db) {
-        // Přihlášený uživatel, mažeme z Firestore pomocí batch operace
-        const batch = db.batch();
-        const snapshot = await db.collection(`artifacts/${appId}/users/${currentUser.uid}/slepice`).get();
-        snapshot.docs.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-        console.log("Všechny slepice odstraněny z Firestore.");
-    } else {
-        // Anonymní uživatel, mažeme lokálně
-        slepice = [];
-        saveDataLocally();
-    }
-    closeModal(deleteFolderModal);
-}
-
-// Funkce pro úpravu hodnot celé složky
-async function editFolderValues(updates) {
-    if (currentUser && db) {
-        // Přihlášený uživatel, aktualizujeme v Firestore pomocí batch operace
-        const batch = db.batch();
-        const snapshot = await db.collection(`artifacts/${appId}/users/${currentUser.uid}/slepice`).get();
-
-        snapshot.docs.forEach((doc) => {
-            const currentData = doc.data();
-            const updatedData = { ...currentData };
-            for (const key in updates) {
-                // Pouze aktualizovat, pokud je hodnota v 'updates' definovaná a není prázdný řetězec
-                if (updates[key] !== null && updates[key] !== undefined && updates[key] !== '') {
-                    updatedData[key] = updates[key];
-                }
-            }
-            batch.update(doc.ref, updatedData);
-        });
-        await batch.commit();
-        console.log("Hodnoty složky aktualizovány v Firestore.");
-    } else {
-        // Anonymní uživatel, aktualizujeme lokálně
-        slepice = slepice.map(s => {
-            const updatedSlepice = { ...s };
-            for (const key in updates) {
-                if (updates[key] !== null && updates[key] !== undefined && updates[key] !== '') {
-                    updatedSlepice[key] = updates[key];
-                }
-            }
-            return updatedSlepice;
-        });
-        saveDataLocally();
-    }
-    closeModal(editFolderModal);
-}
-
-
-// --- Pomocné funkce pro UI a data ---
-
-// Funkce pro výpočet stáří slepice
-function calculateAge(purchaseDate) {
-    if (!purchaseDate) return 'Neznámé';
-    const today = new Date();
-    const bought = new Date(purchaseDate);
-    let ageInMonths = (today.getFullYear() - bought.getFullYear()) * 12;
-    ageInMonths -= bought.getMonth();
-    ageInMonths += today.getMonth();
     
-    const years = Math.floor(ageInMonths / 12);
-    const months = ageInMonths % 12;
+    console.log("Načítání dat z Firestore pro uživatele:", currentUser.uid);
+    db.collection('users').doc(currentUser.uid).collection('slepice').get()
+        .then((querySnapshot) => {
+            if (!querySnapshot.empty) {
+                console.log("Nalezena data v Firestore, počet záznamů:", querySnapshot.size);
+                const userData = [];
+                querySnapshot.forEach((doc) => {
+                    userData.push(doc.data());
+                });
+                
+                slepice = userData;
+                
+                // Zobrazení dat
+                const groups = groupSlepiceByDate(slepice);
+                renderSlepiceGroups(groups);
+                updateStats();
+                
+                // Uložení do localStorage jako záloha
+                localStorage.setItem('slepice-data', JSON.stringify(slepice));
+            } else {
+                console.log("Žádná data v Firestore, použijeme lokální data");
+                // Pokud uživatel nemá data v cloudu, použijeme lokální, pokud existují
+                loadData();
+                if (slepice.length > 0) {
+                    // Uložíme lokální data do cloudu
+                    saveUserData();
+                }
+                
+                const groups = groupSlepiceByDate(slepice);
+                renderSlepiceGroups(groups);
+                updateStats();
+            }
+        })
+        .catch((error) => {
+            console.error("Chyba při načítání dat z Firestore:", error);
+            // Záložní načtení z localStorage
+            loadData();
+            const groups = groupSlepiceByDate(slepice);
+            renderSlepiceGroups(groups);
+            updateStats();
+        });
+}
 
-    if (years > 0 && months > 0) {
-        return `${years} let, ${months} měs.`;
-    } else if (years > 0) {
-        return `${years} let`;
-    } else if (months > 0) {
-        return `${months} měs.`;
+// Uložení dat uživatele do Firebase
+function saveUserData() {
+    if (!currentUser || !db) {
+        console.error("Nelze uložit data - uživatel nebo databáze nejsou k dispozici");
+        return;
+    }
+    
+    console.log("Ukládání dat do Firestore pro uživatele:", currentUser.uid);
+    
+    // Přístup po jednotlivých dokumentech pro větší spolehlivost
+    const promises = slepice.map(s => {
+        return db.collection('users').doc(currentUser.uid).collection('slepice').doc(s.id.toString())
+            .set(s)
+            .then(() => {
+                console.log(`Slepice ID ${s.id} úspěšně uložena`);
+            })
+            .catch(error => {
+                console.error(`Chyba při ukládání slepice ID ${s.id}:`, error);
+            });
+    });
+    
+    Promise.all(promises)
+        .then(() => {
+            console.log("Všechna data úspěšně uložena do Firestore");
+        })
+        .catch((error) => {
+            console.error("Chyba při ukládání dat do Firestore:", error);
+        });
+}
+
+// Počáteční data
+let slepice = [
+    { 
+        id: 1, 
+        druh: "Leghornka bílá", 
+        datumZakoupeni: "2025-01-15", 
+        stariPriZakoupeni: 12, 
+        datumUmrti: "", 
+        stariPriUmrti: null, 
+        barvaKrouzku: "červená", 
+        cisloKrouzku: "1", 
+        stranaKrouzku: "", 
+        porizovaci_cena: 250 
+    },
+    { 
+        id: 2, 
+        druh: "Vlaška", 
+        datumZakoupeni: "2024-11-03", 
+        stariPriZakoupeni: 20, 
+        datumUmrti: "", 
+        stariPriUmrti: null, 
+        barvaKrouzku: "modrá", 
+        cisloKrouzku: "2", 
+        stranaKrouzku: "", 
+        porizovaci_cena: 290 
+    },
+    { 
+        id: 3, 
+        druh: "Hempšírka", 
+        datumZakoupeni: "2024-09-20", 
+        stariPriZakoupeni: 16, 
+        datumUmrti: "2025-03-15", 
+        stariPriUmrti: 28, 
+        barvaKrouzku: "zelená", 
+        cisloKrouzku: "3", 
+        stranaKrouzku: "", 
+        porizovaci_cena: 320 
+    }
+];
+
+// Načtení dat z localStorage při startu
+function loadData() {
+    const savedData = localStorage.getItem('slepice-data');
+    if (savedData) {
+        try {
+            slepice = JSON.parse(savedData);
+            console.log("Data načtena z localStorage, počet záznamů:", slepice.length);
+        } catch (e) {
+            console.error('Chyba při načítání dat z localStorage:', e);
+        }
     } else {
-        return 'Méně než měsíc';
+        console.log("Žádná data v localStorage, použijeme výchozí data");
+    }
+}
+
+// Uložení dat do localStorage
+function saveData() {
+    // Uložení do localStorage
+    localStorage.setItem('slepice-data', JSON.stringify(slepice));
+    console.log("Data uložena do localStorage, počet záznamů:", slepice.length);
+    
+    // Pokud je uživatel přihlášen, uložíme data i do cloudu
+    if (currentUser) {
+        saveUserData();
+    }
+}
+
+// HTML elementy
+const slepiceTableBody = document.getElementById('slepice-table-body');
+const searchInput = document.getElementById('search-input');
+const addSlepiceBtn = document.getElementById('add-slepice-btn');
+
+const slepiceModal = document.getElementById('slepice-modal');
+const modalTitle = document.getElementById('modal-title');
+const modalClose = document.getElementById('modal-close');
+const modalCancel = document.getElementById('modal-cancel');
+const modalSave = document.getElementById('modal-save');
+
+const slepiceForm = document.getElementById('slepice-form');
+const slepiceIdInput = document.getElementById('slepice-id');
+const originalDruhInput = document.getElementById('originalDruh');
+const druhInput = document.getElementById('druh');
+const datumZakoupeniInput = document.getElementById('datumZakoupeni');
+const stariPriZakoupeniInput = document.getElementById('stariPriZakoupeni');
+const datumUmrtiInput = document.getElementById('datumUmrti');
+const stariPriUmrtiInput = document.getElementById('stariPriUmrti');
+const barvaKrouzkuInput = document.getElementById('barvaKrouzku');
+const cisloKrouzkuInput = document.getElementById('cisloKrouzku');
+const porizovaci_cenaInput = document.getElementById('porizovaci_cena');
+const hromadnePridaniCheck = document.getElementById('hromadne-pridani');
+const pocetSlepicInput = document.getElementById('pocet-slepic');
+const hromadnePridaniContainer = document.getElementById('hromadne-pridani-container');
+const druhyDatalist = document.getElementById('druhy-datalist');
+const breedRestrictionError = document.getElementById('breed-restriction-error');
+
+const deleteModal = document.getElementById('delete-modal');
+const deleteModalClose = document.getElementById('delete-modal-close');
+const deleteCancel = document.getElementById('delete-cancel');
+const deleteConfirm = document.getElementById('delete-confirm');
+const deleteSlepiceName = document.getElementById('delete-slepice-name');
+
+const statTotal = document.getElementById('stat-total');
+const statInvestment = document.getElementById('stat-investment');
+const statHistorical = document.getElementById('stat-historical');
+
+// Funkce pro formátování věku
+function formatAge(weeks) {
+    if (!weeks || isNaN(weeks)) return "-";
+    
+    // Do 6 měsíců zobrazovat v týdnech
+    if (weeks < 26) {
+        return `${weeks} týdnů`;
+    }
+    // 6-12 měsíců zobrazovat v měsících
+    else if (weeks < 52) {
+        const months = Math.floor(weeks / 4.33);
+        return `${months} měsíců`;
+    }
+    // Nad 12 měsíců zobrazovat v letech a měsících
+    else {
+        const years = Math.floor(weeks / 52);
+        const months = Math.floor((weeks % 52) / 4.33);
+        if (months === 0) {
+            return years === 1 ? `1 rok` : `${years} roky`;
+        } else {
+            return years === 1 
+                ? `1 rok ${months} měsíců` 
+                : `${years} roky ${months} měsíců`;
+        }
     }
 }
 
 // Funkce pro seskupení slepic podle data zakoupení
-function groupSlepiceByDate(slepiceArray) {
+function groupSlepiceByDate(slepiceList) {
     const groups = {};
-    slepiceArray.forEach(s => {
-        const date = s.datumZakoupeni;
-        if (!groups[date]) {
-            groups[date] = [];
+    
+    slepiceList.forEach(slepice => {
+        if (!groups[slepice.datumZakoupeni]) {
+            groups[slepice.datumZakoupeni] = [];
         }
-        groups[date].push(s);
+        groups[slepice.datumZakoupeni].push(slepice);
     });
-    return groups;
+    
+    // Převod objektu skupin na pole pro snazší práci
+    return Object.keys(groups).map(datum => {
+        const slepiceGroup = groups[datum];
+        const zive = slepiceGroup.filter(s => !s.datumUmrti).length;
+        const celkovaCena = slepiceGroup.reduce((sum, s) => sum + (parseInt(s.porizovaci_cena) || 0), 0);
+        
+        // Zjištění druhů slepic ve skupině
+        const druhy = [...new Set(slepiceGroup.map(s => s.druh))];
+        
+        // Zjištění barvy kroužků
+        const barvy = [...new Set(slepiceGroup.map(s => s.barvaKrouzku).filter(b => b))];
+        
+        // Zjištění rozsahu čísel kroužků (pouze pro slepice s číselným kroužkem)
+        const cislaKrouzku = slepiceGroup
+            .map(s => s.cisloKrouzku)
+            .filter(c => c && !isNaN(parseInt(c)))
+            .map(c => parseInt(c))
+            .sort((a, b) => a - b);
+        
+        let rozsahCisel = "";
+        if (cislaKrouzku.length > 0) {
+            const min = cislaKrouzku[0];
+            const max = cislaKrouzku[cislaKrouzku.length - 1];
+            rozsahCisel = min === max ? min.toString() : `${min}-${max}`;
+        }
+        
+        // Zjištění stran kroužků
+        const strany = slepiceGroup
+            .map(s => s.stranaKrouzku)
+            .filter(s => s)
+            .reduce((acc, strana) => {
+                acc[strana] = (acc[strana] || 0) + 1;
+                return acc;
+            }, {});
+        
+        let stranyText = "";
+        if (Object.keys(strany).length > 0) {
+            stranyText = Object.entries(strany)
+                .map(([strana, pocet]) => `${strana} (${pocet})`)
+                .join(", ");
+        }
+        
+        // Výpočet statusu skupiny (pro barevné označení)
+        let statusClass = 'group-status-healthy';
+        if (zive === 0) {
+            statusClass = 'group-status-danger';
+        } else if (zive / slepiceGroup.length < 0.5) {
+            statusClass = 'group-status-warning';
+        }
+        
+        return {
+            datum: datum,
+            slepice: slepiceGroup,
+            pocet: slepiceGroup.length,
+            zive: zive,
+            celkovaCena: celkovaCena,
+            druhy: druhy.join(", "),
+            barvy: barvy,
+            rozsahCisel: rozsahCisel,
+            strany: stranyText,
+            statusClass: statusClass
+        };
+    }).sort((a, b) => new Date(b.datum) - new Date(a.datum)); // Seřazení od nejnovějších
 }
 
-// Funkce pro vykreslení skupin slepic
+// Funkce pro získání CSS třídy pro barvu kroužku
+function getRingColorClass(barva) {
+    if (!barva) return 'ring-none';
+    
+    switch (barva.toLowerCase()) {
+        case 'červená': return 'ring-red';
+        case 'zelená': return 'ring-green';
+        case 'žlutá': return 'ring-yellow';
+        case 'modrá': return 'ring-blue';
+        default: return 'ring-none';
+    }
+}
+
+// Funkce pro zobrazení skupin na hlavní stránce
 function renderSlepiceGroups(groups) {
-    const tableBody = document.getElementById('slepice-table-body');
-    tableBody.innerHTML = ''; // Vyčistit tabulku
-
-    const sortedDates = Object.keys(groups).sort((a, b) => new Date(a) - new Date(b));
-
-    sortedDates.forEach(date => {
-        const group = groups[date];
-        const groupRow = document.createElement('tr');
-        groupRow.classList.add('group-header');
-        const totalGroupPrice = group.reduce((sum, s) => sum + parseFloat(s.cena || 0), 0);
-
-        groupRow.innerHTML = `
-            <td colspan="7">
-                <div class="group-summary">
-                    <span>Datum zakoupení: <strong>${new Date(date).toLocaleDateString('cs-CZ')}</strong> (${group.length} slepic)</span>
-                    <span>Celková cena skupiny: <strong>${totalGroupPrice.toFixed(2)} Kč</strong></span>
+    slepiceTableBody.innerHTML = '';
+    
+    if (groups.length === 0) {
+        slepiceTableBody.innerHTML = `
+            <tr>
+                <td colspan="7">
+                    <div class="empty-state">
+                        <i class="fas fa-feather"></i>
+                        <p>Zatím nemáte žádné záznamy</p>
+                        <button class="btn btn-primary" id="empty-add-btn">
+                            <i class="fas fa-plus"></i> Přidat první slepici
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        
+        document.getElementById('empty-add-btn')?.addEventListener('click', openAddModal);
+        return;
+    }
+    
+    groups.forEach(group => {
+        const row = document.createElement('tr');
+        row.classList.add('group-row');
+        row.dataset.date = group.datum;
+        
+        // Vytvoření HTML pro barevné kroužky
+        let barvyHTML = "";
+        if (group.barvy && group.barvy.length > 0) {
+            barvyHTML = group.barvy.map(barva => {
+                const colorClass = getRingColorClass(barva);
+                return `
+                    <div class="ring-color-container">
+                        <span class="ring-color ${colorClass}"></span>
+                        <span class="ring-color-text">${barva}</span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            barvyHTML = '<span class="text-secondary">-</span>';
+        }
+        
+        // Vytvoření statusu skupiny
+        const statusHTML = `
+            <div class="group-status ${group.statusClass}">
+                ${group.zive} z ${group.pocet}
+            </div>
+        `;
+        
+        row.innerHTML = `
+            <td>
+                <div class="group-header">
+                    <button class="btn-toggle">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    ${group.druhy}
                 </div>
             </td>
+            <td>${formatDate(group.datum)}</td>
+            <td>
+                ${group.pocet} ${statusHTML}
+            </td>
+            <td>${group.celkovaCena} Kč</td>
+            <td>${barvyHTML}</td>
+            <td>${group.rozsahCisel || group.strany || "-"}</td>
+            <td class="actions">
+                <button class="icon-btn add-to-group-btn" data-date="${group.datum}" data-druh="${group.druhy}" title="Přidat do skupiny">
+                    <i class="fas fa-plus-circle"></i>
+                </button>
+            </td>
         `;
-        tableBody.appendChild(groupRow);
-
-        group.forEach(s => {
-            const row = document.createElement('tr');
-            row.dataset.id = s.id;
-            const age = calculateAge(s.datumZakoupeni);
-            row.innerHTML = `
-                <td>${s.druh || ''}</td>
-                <td>${s.datumZakoupeni ? new Date(s.datumZakoupeni).toLocaleDateString('cs-CZ') : ''}</td>
-                <td>${age}</td> <td>${parseFloat(s.cena || 0).toFixed(2)} Kč</td>
-                <td class="ring-color-${s.krouzek ? s.krouzek.toLowerCase() : 'none'}">${s.krouzek || 'Žádný'}</td>
-                <td>${s.poznamky || ''}</td>
-                <td class="actions">
-                    <button class="btn btn-edit" data-id="${s.id}"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-delete" data-id="${s.id}"><i class="fas fa-trash"></i></button>
-                </td>
-            `;
-            tableBody.appendChild(row);
+        
+        slepiceTableBody.appendChild(row);
+        
+        // Vytvoříme kontejner pro detail skupiny (bude skrytý)
+        const detailRow = document.createElement('tr');
+        detailRow.classList.add('detail-row');
+        detailRow.style.display = 'none';
+        
+        const detailCell = document.createElement('td');
+        detailCell.colSpan = 7;
+        detailCell.innerHTML = `
+            <div class="detail-container">
+                <table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Druh</th>
+                            <th>Stáří při zakoupení</th>
+                            <th>Stav</th>
+                            <th>Kroužek</th>
+                            <th>Cena</th>
+                            <th>Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody class="detail-table-body" data-date="${group.datum}">
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        detailRow.appendChild(detailCell);
+        slepiceTableBody.appendChild(detailRow);
+    });
+    
+    // Event listener pro rozbalení/sbalení skupiny
+    document.querySelectorAll('.btn-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const groupRow = this.closest('.group-row');
+            const detailRow = groupRow.nextElementSibling;
+            
+            // Přepnutí ikony šipky
+            const icon = this.querySelector('i');
+            icon.classList.toggle('fa-chevron-right');
+            icon.classList.toggle('fa-chevron-down');
+            
+            // Zobrazení/skrytí detailu
+            if (detailRow.style.display === 'none') {
+                detailRow.style.display = 'table-row';
+                // Načtení detailů pro tuto skupinu
+                renderGroupDetails(groupRow.dataset.date);
+            } else {
+                detailRow.style.display = 'none';
+            }
         });
     });
-
-    // Přidání posluchačů událostí pro tlačítka edit a delete po vykreslení
-    document.querySelectorAll('.btn-edit').forEach(button => {
-        button.addEventListener('click', e => openAddModal(e.currentTarget.dataset.id));
+    
+    // Event listener pro přidání slepice do skupiny
+    document.querySelectorAll('.add-to-group-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Zastavení propagace události, aby se nerozbalil detail
+            const date = this.dataset.date;
+            const druh = this.dataset.druh;
+            openAddModal(date, druh);
+        });
     });
-    document.querySelectorAll('.btn-delete').forEach(button => {
-        button.addEventListener('click', e => openDeleteModal(e.currentTarget.dataset.id));
-    });
 }
 
-// Funkce pro aktualizaci souhrnných informací
-function updateSummary() {
-    const totalSlepice = slepice.length;
-    const totalInvestment = slepice.reduce((sum, s) => sum + parseFloat(s.cena || 0), 0);
-    const historicalRecords = slepice.length; // Pro jednoduchost stejné jako celkem slepic
-
-    document.getElementById('total-slepice').textContent = totalSlepice;
-    document.getElementById('total-investment').textContent = `${totalInvestment.toFixed(2)} Kč`;
-    document.getElementById('historical-records').textContent = historicalRecords;
-}
-
-// --- Modální okna ---
-const slepiceModal = document.getElementById('slepice-modal');
-const deleteModal = document.getElementById('delete-modal');
-const editFolderModal = document.getElementById('edit-folder-modal');
-const deleteFolderModal = document.getElementById('delete-folder-modal');
-
-const modalClose = document.getElementById('modal-close');
-const modalCancel = document.getElementById('modal-cancel');
-const deleteModalClose = document.getElementById('delete-modal-close');
-const deleteCancel = document.getElementById('delete-cancel');
-const deleteConfirm = document.getElementById('delete-confirm');
-const editFolderModalClose = document.getElementById('edit-folder-modal-close');
-const editFolderCancel = document.getElementById('edit-folder-cancel');
-const editFolderSave = document.getElementById('edit-folder-save');
-const deleteFolderModalClose = document.getElementById('delete-folder-modal-close');
-const deleteFolderCancel = document.getElementById('delete-folder-cancel');
-const deleteFolderConfirm = document.getElementById('delete-folder-confirm');
-
-
-function openModal(modalElement) {
-    modalElement.style.display = 'flex'; // Použít flex pro centrování
-}
-
-function closeModal(modalElement) {
-    modalElement.style.display = 'none';
-}
-
-// Otevření modálního okna pro přidání/úpravu
-function openAddModal(id) {
-    const form = document.getElementById('slepice-form');
-    form.reset(); // Vyčistit formulář
-    document.getElementById('slepice-id').value = ''; // Vyčistit ID
-
-    if (id) {
-        // Režim úpravy
-        const slepiceToEdit = slepice.find(s => s.id === id);
-        if (slepiceToEdit) {
-            document.getElementById('slepice-id').value = slepiceToEdit.id;
-            document.getElementById('druh').value = slepiceToEdit.druh || '';
-            document.getElementById('datumZakoupeni').value = slepiceToEdit.datumZakoupeni || '';
-            document.getElementById('cena').value = slepiceToEdit.cena || '';
-            document.getElementById('poznamky').value = slepiceToEdit.poznamky || '';
-            if (slepiceToEdit.krouzek) {
-                const radio = document.querySelector(`input[name="krouzek"][value="${slepiceToEdit.krouzek}"]`);
-                if (radio) radio.checked = true;
-            } else {
-                // Pokud kroužek není definován, nastavit "Žádný"
-                const radioNone = document.querySelector('input[name="krouzek"][value="Žádný"]');
-                if (radioNone) radioNone.checked = true;
-            }
+// Funkce pro zobrazení detailů skupiny
+function renderGroupDetails(date) {
+    const detailTableBody = document.querySelector(`.detail-table-body[data-date="${date}"]`);
+    if (!detailTableBody) return;
+    
+    // Filtrujeme slepice podle data zakoupení
+    const groupSlepice = slepice.filter(s => s.datumZakoupeni === date);
+    
+    detailTableBody.innerHTML = '';
+    
+    groupSlepice.forEach(slepice => {
+        const row = document.createElement('tr');
+        
+        // Určení typu kroužku
+        let krouzekInfo = "-";
+        if (slepice.cisloKrouzku) {
+            const barva = slepice.barvaKrouzku || '';
+            const colorClass = getRingColorClass(barva);
+            krouzekInfo = `
+                <div class="ring-color-container">
+                    <span class="ring-color ${colorClass}"></span>
+                    <span>č. ${slepice.cisloKrouzku}</span>
+                </div>
+            `;
+        } else if (slepice.stranaKrouzku) {
+            const barva = slepice.barvaKrouzku || '';
+            const colorClass = getRingColorClass(barva);
+            krouzekInfo = `
+                <div class="ring-color-container">
+                    <span class="ring-color ${colorClass}"></span>
+                    <span>${slepice.stranaKrouzku} strana</span>
+                </div>
+            `;
         }
-    }
-    openModal(slepiceModal);
+        
+        // Výpočet aktuálního stáří
+        let stariHtml = '';
+        
+        if (slepice.datumUmrti) {
+            stariHtml = `
+                <div>
+                    ${formatDate(slepice.datumUmrti)}
+                </div>
+                <div class="age-display">
+                    <span class="age-value">${formatAge(slepice.stariPriUmrti)}</span>
+                </div>
+            `;
+        } else {
+            const today = new Date();
+            const zakoupeni = new Date(slepice.datumZakoupeni);
+            const tydnuOdZakoupeni = Math.floor((today - zakoupeni) / (1000 * 60 * 60 * 24 * 7));
+            const celkoveTydnu = tydnuOdZakoupeni + (slepice.stariPriZakoupeni || 0);
+            
+            stariHtml = `
+                <span class="status status-active">Žije</span>
+                <div class="age-display">
+                    <span class="age-value">${formatAge(celkoveTydnu)}</span>
+                </div>
+            `;
+        }
+        
+        row.innerHTML = `
+            <td>${slepice.druh}</td>
+            <td>
+                <div class="age-display">
+                    <span class="age-value">${formatAge(slepice.stariPriZakoupeni)}</span>
+                </div>
+            </td>
+            <td>${stariHtml}</td>
+            <td>${krouzekInfo}</td>
+            <td>${slepice.porizovaci_cena ? `${slepice.porizovaci_cena} Kč` : "-"}</td>
+            <td class="actions">
+                <button class="icon-btn edit-btn" data-id="${slepice.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="icon-btn delete-btn" data-id="${slepice.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        detailTableBody.appendChild(row);
+    });
+    
+    // Nastavení event listenerů pro tlačítka
+    detailTableBody.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(parseInt(btn.dataset.id)));
+    });
+    
+    detailTableBody.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => openDeleteModal(parseInt(btn.dataset.id)));
+    });
 }
 
-// Otevření modálního okna pro potvrzení odstranění jedné slepice
-function openDeleteModal(id) {
-    deleteConfirm.dataset.id = id;
-    openModal(deleteModal);
+// Formátování data
+function formatDate(dateString) {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('cs-CZ');
 }
 
-// Otevření modálního okna pro úpravu složky
-function openEditFolderModal() {
-    const form = document.getElementById('edit-folder-form');
-    form.reset();
-    // Nastaví "Ponechat stávající" jako výchozí pro kroužek v modalu úpravy složky
-    const radioKeepExisting = document.querySelector('input[name="edit-folder-krouzek"][value=""]');
-    if (radioKeepExisting) radioKeepExisting.checked = true;
-    openModal(editFolderModal);
+// Zobrazení tabulky slepic (ponecháno pro kompatibilitu)
+function renderSlepiceTable(data) {
+    slepiceTableBody.innerHTML = '';
+    
+    if (data.length === 0) {
+        slepiceTableBody.innerHTML = `
+            <tr>
+                <td colspan="6">
+                    <div class="empty-state">
+                        <i class="fas fa-feather"></i>
+                        <p>Zatím nemáte žádné záznamy</p>
+                        <button class="btn btn-primary" id="empty-add-btn">
+                            <i class="fas fa-plus"></i> Přidat první slepici
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        
+        document.getElementById('empty-add-btn')?.addEventListener('click', openAddModal);
+        return;
+    }
+    
+    data.forEach(slepice => {
+        const row = document.createElement('tr');
+        
+        // Barva kroužku
+        let colorHtml = '';
+        if (slepice.barvaKrouzku) {
+            const colorClass = getRingColorClass(slepice.barvaKrouzku);
+            colorHtml = `<span class="ring-color ${colorClass}"></span>`;
+        }
+        
+        // Status
+        const statusHtml = slepice.datumUmrti 
+            ? `<span class="status status-deceased">Zemřela</span>` 
+            : `<span class="status status-active">Žije</span>`;
+        
+        row.innerHTML = `
+            <td>${slepice.druh}</td>
+            <td>
+                ${formatDate(slepice.datumZakoupeni)}
+                <div class="age-display">
+                    <span class="age-value">${formatAge(slepice.stariPriZakoupeni)}</span>
+                </div>
+            </td>
+            <td>
+                ${slepice.datumUmrti 
+                    ? `${formatDate(slepice.datumUmrti)}<div class="age-display"><span class="age-value">${formatAge(slepice.stariPriUmrti)}</span></div>` 
+                    : statusHtml
+                }
+            </td>
+            <td>
+                <div class="ring-color-container">
+                    ${colorHtml}
+                    <span>${slepice.cisloKrouzku || "-"}</span>
+                </div>
+            </td>
+            <td>${slepice.porizovaci_cena ? `${slepice.porizovaci_cena} Kč` : "-"}</td>
+            <td class="actions">
+                <button class="icon-btn edit-btn" data-id="${slepice.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="icon-btn delete-btn" data-id="${slepice.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        slepiceTableBody.appendChild(row);
+    });
+    
+    // Nastavení event listenerů pro tlačítka
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(parseInt(btn.dataset.id)));
+    });
+    
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => openDeleteModal(parseInt(btn.dataset.id)));
+    });
 }
 
-// Otevření modálního okna pro smazání složky
-function openDeleteFolderModal() {
-    openModal(deleteFolderModal);
+// Získání kódu barvy
+function getColorCode(barva) {
+    switch (barva.toLowerCase()) {
+        case 'červená': return '#E53935';
+        case 'zelená': return '#43A047';
+        case 'žlutá': return '#FDD835';
+        case 'modrá': return '#1E88E5';
+        default: return '#9E9E9E';
+    }
 }
 
-// --- Obsluha formulářů a událostí ---
-
-// Obsluha formuláře pro přidání/úpravu slepice
-document.getElementById('slepice-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const id = document.getElementById('slepice-id').value;
-    const druh = document.getElementById('druh').value;
-    const datumZakoupeni = document.getElementById('datumZakoupeni').value;
-    const cena = parseFloat(document.getElementById('cena').value);
-    // Získání hodnoty kroužku, pokud není vybráno, použije 'Žádný'
-    const krouzek = document.querySelector('input[name="krouzek"]:checked')?.value || 'Žádný';
-    const poznamky = document.getElementById('poznamky').value;
-
-    const slepiceData = {
-        druh,
-        datumZakoupeni,
-        cena,
-        krouzek,
-        poznamky
-    };
-
-    if (id) {
-        slepiceData.id = id;
-    }
-    saveSlepice(slepiceData);
-});
-
-// Obsluha formuláře pro úpravu složky
-document.getElementById('edit-folder-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const updates = {};
-    const druh = document.getElementById('edit-folder-druh').value;
-    const datumZakoupeni = document.getElementById('edit-folder-datumZakoupeni').value;
-    const cena = document.getElementById('edit-folder-cena').value;
-    // Získání hodnoty kroužku. Pokud je vybráno "Ponechat stávající" (value=""), pak se kroužek neaktualizuje.
-    const krouzek = document.querySelector('input[name="edit-folder-krouzek"]:checked')?.value;
-    const poznamky = document.getElementById('edit-folder-poznamky').value;
-
-    if (druh) updates.druh = druh;
-    if (datumZakoupeni) updates.datumZakoupeni = datumZakoupeni;
-    // Pouze aktualizovat cenu, pokud je zadána a je platné číslo
-    if (cena !== '' && !isNaN(parseFloat(cena))) updates.cena = parseFloat(cena);
-    // Kroužek se aktualizuje, jen pokud není vybráno "Ponechat stávající" (prázdná hodnota)
-    if (krouzek !== undefined && krouzek !== '') updates.krouzek = krouzek;
-    if (poznamky) updates.poznamky = poznamky;
-
-    editFolderValues(updates);
-});
-
-// --- Event Listeners ---
-document.addEventListener('DOMContentLoaded', initFirebase);
-
-// Přihlášení Google účtem
-document.getElementById('google-login-btn').addEventListener('click', async () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    try {
-        await auth.signInWithPopup(provider);
-        console.log("Přihlášení Google účtem úspěšné.");
-    } catch (error) {
-        console.error("Chyba při přihlašování Google účtem:", error);
-    }
-});
-
-// Odhlášení
-document.getElementById('logout-btn').addEventListener('click', async () => {
-    try {
-        await auth.signOut();
-        console.log("Uživatel odhlášen.");
-        slepice = []; // Vyčistit lokální data po odhlášení
-        saveDataLocally(); // Uložit prázdné pole
-        const groups = groupSlepiceByDate(slepice);
-        renderSlepiceGroups(groups);
-        updateSummary();
-    } catch (error) {
-        console.error("Chyba při odhlašování:", error);
-    }
-});
+// Aktualizace statistik
+function updateStats() {
+    const activeSlepice = slepice.filter(s => !s.datumUmrti);
+    const historicalSlepice = slepice.filter(s => s.datumUmrti);
+    const totalInvestment = slepice.reduce((sum, s) => sum + (parseInt(s.porizovaci_cena) || 0), 0);
+    
+    statTotal.textContent = activeSlepice.length;
+    statInvestment.textContent = `${totalInvestment} Kč`;
+    statHistorical.textContent = historicalSlepice.length;
+}
 
 // Vyhledávání
-document.getElementById('search-input').addEventListener('input', (e) => {
-    const query = e.target.value.toLowerCase();
-    const filteredSlepice = slepice.filter(s =>
-        (s.druh && s.druh.toLowerCase().includes(query)) ||
-        (s.poznamky && s.poznamky.toLowerCase().includes(query)) ||
-        (s.krouzek && s.krouzek.toLowerCase().includes(query)) ||
-        (s.datumZakoupeni && new Date(s.datumZakoupeni).toLocaleDateString('cs-CZ').includes(query))
-    );
-    const filteredGroups = groupSlepiceByDate(filteredSlepice);
-    renderSlepiceGroups(filteredGroups);
-});
-
-// Přidání slepice
-document.getElementById('add-slepice-btn').addEventListener('click', () => openAddModal());
-
-// Zavření modálních oken
-modalClose.addEventListener('click', () => closeModal(slepiceModal));
-modalCancel.addEventListener('click', () => closeModal(slepiceModal));
-deleteModalClose.addEventListener('click', () => closeModal(deleteModal));
-deleteCancel.addEventListener('click', () => closeModal(deleteModal));
-editFolderModalClose.addEventListener('click', () => closeModal(editFolderModal));
-editFolderCancel.addEventListener('click', () => closeModal(editFolderModal));
-deleteFolderModalClose.addEventListener('click', () => closeModal(deleteFolderModal));
-deleteFolderCancel.addEventListener('click', () => closeModal(deleteFolderModal));
-
-// Potvrzení odstranění jedné slepice
-deleteConfirm.addEventListener('click', () => {
-    const id = deleteConfirm.dataset.id;
-    deleteSlepice(id);
-});
-
-// Potvrzení odstranění celé složky
-deleteFolderConfirm.addEventListener('click', deleteAllSlepice);
-
-// Otevření modálního okna pro úpravu složky
-document.getElementById('edit-folder-btn').addEventListener('click', openEditFolderModal);
-
-// Otevření modálního okna pro smazání složky
-document.getElementById('delete-folder-btn').addEventListener('click', openDeleteFolderModal);
-
-// Zavření modálních oken při kliknutí mimo ně
-window.addEventListener('click', e => {
-    if (e.target === slepiceModal) {
-        closeModal(slepiceModal);
-    } else if (e.target === deleteModal) {
-        closeModal(deleteModal);
-    } else if (e.target === editFolderModal) {
-        closeModal(editFolderModal);
-    } else if (e.target === deleteFolderModal) {
-        closeModal(deleteFolderModal);
+function searchSlepice(query) {
+    if (!query) {
+        return slepice;
     }
-});
+    
+    query = query.toLowerCase();
+    return slepice.filter(s => 
+        s.druh.toLowerCase().includes(query) ||
+        (s.cisloKrouzku && s.cisloKrouzku.toLowerCase().includes(query)) ||
+        (s.barvaKrouzku && s.barvaKrouzku.toLowerCase().includes(query))
+    );
+}
 
-// Funkce pro aktualizaci UI na základě stavu přihlášení
-function updateUIBasedOnLoginState(user) {
-    if (user) {
-        // Uživatel je přihlášen
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('logout-section').style.display = 'flex';
-        document.getElementById('slepice-folder-container').style.display = 'flex';
-        document.getElementById('main-app-content').style.display = 'none'; // Skrýt hlavní obsah na začátku
-    } else {
-        // Uživatel není přihlášen (anonymní nebo odhlášen)
-        document.getElementById('login-section').style.display = 'flex';
-        document.getElementById('logout-section').style.display = 'none';
-        document.getElementById('slepice-folder-container').style.display = 'flex';
-        document.getElementById('main-app-content').style.display = 'none'; // Skrýt hlavní obsah na začátku
+// Získání unikátních druhů slepic z existujících záznamů
+function updateDruhyDatalist() {
+    if (!druhyDatalist) return;
+    
+    druhyDatalist.innerHTML = '';
+    const uniqueDruhy = [...new Set(slepice.map(s => s.druh))];
+    
+    uniqueDruhy.forEach(druh => {
+        const option = document.createElement('option');
+        option.value = druh;
+        druhyDatalist.appendChild(option);
+    });
+}
+
+// Naplnění selectu pro čísla kroužků
+function populateCislaKrouzku() {
+    if (!cisloKrouzkuInput) return;
+    
+    cisloKrouzkuInput.innerHTML = '<option value="">Vyberte číslo</option>';
+    
+    for (let i = 1; i <= 20; i++) {
+        const option = document.createElement('option');
+        option.value = i.toString();
+        option.textContent = i.toString();
+        cisloKrouzkuInput.appendChild(option);
     }
 }
 
-// Obsluha kliknutí na ikonu "Slepice"
-document.getElementById('slepice-folder-icon').addEventListener('click', () => {
-    document.getElementById('slepice-folder-container').style.display = 'none';
-    document.getElementById('login-container').style.display = 'none'; // Skrýt login po rozkliknutí
-    document.getElementById('main-app-content').style.display = 'block'; // Zobrazit hlavní obsah
+// Přepínání mezi číslem kroužku a stranou
+function toggleKrouzekTyp() {
+    const typCislo = document.getElementById('typ-krouzku-cislo').checked;
+    const typStrana = document.getElementById('typ-krouzku-strana').checked;
+    
+    document.getElementById('cislo-krouzku-group').style.display = typCislo ? 'block' : 'none';
+    document.getElementById('strana-krouzku-group').style.display = typStrana ? 'block' : 'none';
+    
+    // Také aktualizujeme, zda lze použít hromadné přidávání
+    const isHromadneEnabled = hromadnePridaniCheck && hromadnePridaniCheck.checked;
+    
+    if (isHromadneEnabled && typStrana) {
+        // Pokud je vybráno hromadné přidávání a strana kroužku, zobrazíme alternativní text
+        if (document.getElementById('pocet-slepic-error')) {
+            document.getElementById('pocet-slepic-error').textContent = 'Při výběru strany kroužku bude přidán vámi zvolený počet slepic s alternujícími stranami (levá/pravá).';
+        }
+    } else if (document.getElementById('pocet-slepic-error')) {
+        document.getElementById('pocet-slepic-error').textContent = '';
+    }
+}
+
+// Automatický výpočet stáří při úmrtí
+function calculateStariPriUmrti() {
+    if (!datumZakoupeniInput.value || !datumUmrtiInput.value || !stariPriZakoupeniInput.value) {
+        return;
+    }
+    
+    const datumZakoupeni = new Date(datumZakoupeniInput.value);
+    const datumUmrti = new Date(datumUmrtiInput.value);
+    const stariPriZakoupeni = parseInt(stariPriZakoupeniInput.value);
+    
+    // Kontrola platnosti dat
+    if (datumUmrti <= datumZakoupeni) {
+        document.getElementById('datumUmrti-error').textContent = 'Datum úmrtí musí být pozdější než datum zakoupení';
+        return;
+    }
+    
+    // Výpočet rozdílu v týdnech
+    const rozdilDny = Math.floor((datumUmrti - datumZakoupeni) / (1000 * 60 * 60 * 24));
+    const rozdilTydny = Math.floor(rozdilDny / 7);
+    
+    // Stáří při úmrtí = stáří při zakoupení + počet týdnů mezi datumem zakoupení a úmrtím
+    const stariPriUmrti = stariPriZakoupeni + rozdilTydny;
+    
+    stariPriUmrtiInput.value = stariPriUmrti;
+}
+
+// Kontrola omezení na jeden druh slepic ve skupině
+function checkBreedRestriction() {
+    const selectedDatum = datumZakoupeniInput.value;
+    const selectedDruh = druhInput.value.trim();
+    const originalDruh = originalDruhInput.value.trim();
+    
+    // Pokud se jedná o editaci a druh se nemění, tak není problém
+    if (slepiceIdInput.value && selectedDruh === originalDruh) {
+        breedRestrictionError.style.display = 'none';
+        return true;
+    }
+    
+    // Pokud je pole prázdné, nezobrazujeme chybu
+    if (!selectedDruh || !selectedDatum) {
+        breedRestrictionError.style.display = 'none';
+        return true;
+    }
+    
+    // Kontrola, zda již existují záznamy pro dané datum a zda mají stejný druh
+    const existingSlepice = slepice.filter(s => s.datumZakoupeni === selectedDatum);
+    if (existingSlepice.length > 0) {
+        const existingDruh = existingSlepice[0].druh;
+        if (existingDruh !== selectedDruh) {
+            breedRestrictionError.style.display = 'block';
+            return false;
+        }
+    }
+    
+    breedRestrictionError.style.display = 'none';
+    return true;
+}
+
+// Přepnutí zobrazení hromadného přidání
+function toggleHromadnePridani() {
+    if (!hromadnePridaniContainer || !hromadnePridaniCheck) return;
+    
+    hromadnePridaniContainer.style.display = hromadnePridaniCheck.checked ? 'block' : 'none';
+    
+    // Aktualizujeme text v závislosti na zvoleném typu kroužku
+    toggleKrouzekTyp();
+}
+
+// Otevření modálního okna pro přidání s předvyplněným datem
+function openAddModal(predvyplnenyDatum = null, predvyplnenyDruh = null) {
+    modalTitle.textContent = 'Přidat novou slepici';
+    slepiceForm.reset();
+    slepiceIdInput.value = '';
+    originalDruhInput.value = '';
+    
+    // Přepnutí na výchozí typ kroužku (číslo)
+    document.getElementById('typ-krouzku-cislo').checked = true;
+    toggleKrouzekTyp();
+    
+    // Nastavit dnešní datum jako výchozí pro datum zakoupení
+    if (predvyplnenyDatum) {
+        datumZakoupeniInput.value = predvyplnenyDatum;
+    } else {
+        const today = new Date().toISOString().split('T')[0];
+        datumZakoupeniInput.value = today;
+    }
+    
+    // Předvyplnění druhu slepice, pokud je zadán (pro omezení na jeden druh ve skupině)
+    if (predvyplnenyDruh) {
+        druhInput.value = predvyplnenyDruh;
+    }
+    
+    // Zkontrolujeme omezení na druh
+    checkBreedRestriction();
+    
+    // Skrytí sekce pro stáří při úmrtí
+    document.getElementById('stariPriUmrti-group').style.display = 'none';
+    
+    // Aktualizace našeptávače druhů
+    updateDruhyDatalist();
+    
+    // Naplnění čísly kroužků
+    populateCislaKrouzku();
+    
+    // Resetování a zobrazení hromadného přidání
+    if (hromadnePridaniCheck) {
+        hromadnePridaniCheck.checked = false;
+        toggleHromadnePridani();
+        
+        // Zobrazení sekce pro hromadné přidání
+        document.getElementById('hromadne-pridani-section').style.display = 'block';
+    }
+    
+    slepiceModal.classList.add('active');
+}
+
+// Otevření modálního okna pro editaci
+function openEditModal(id) {
+    const slepiceToEdit = slepice.find(s => s.id === id);
+    if (!slepiceToEdit) return;
+    
+    modalTitle.textContent = 'Upravit záznam';
+    
+    // Nastavení hodnot formuláře
+    slepiceIdInput.value = slepiceToEdit.id;
+    originalDruhInput.value = slepiceToEdit.druh; // Uložíme původní druh pro kontrolu omezení
+    druhInput.value = slepiceToEdit.druh;
+    datumZakoupeniInput.value = slepiceToEdit.datumZakoupeni;
+    stariPriZakoupeniInput.value = slepiceToEdit.stariPriZakoupeni;
+    datumUmrtiInput.value = slepiceToEdit.datumUmrti || '';
+    
+    // Zobrazení/skrytí sekce pro stáří při úmrtí
+    document.getElementById('stariPriUmrti-group').style.display = slepiceToEdit.datumUmrti ? 'block' : 'none';
+    stariPriUmrtiInput.value = slepiceToEdit.stariPriUmrti || '';
+    barvaKrouzkuInput.value = slepiceToEdit.barvaKrouzku || '';
+    
+    // Nastavení typu kroužku
+    if (slepiceToEdit.stranaKrouzku) {
+        document.getElementById('typ-krouzku-strana').checked = true;
+        document.getElementById('strana-krouzku').value = slepiceToEdit.stranaKrouzku;
+        toggleKrouzekTyp();
+    } else {
+        document.getElementById('typ-krouzku-cislo').checked = true;
+        toggleKrouzekTyp();
+        
+        // Naplnění čísly kroužků
+        populateCislaKrouzku();
+        
+        // Nastavení vybraného čísla kroužku
+        if (slepiceToEdit.cisloKrouzku) {
+            // Pokud je číslo kroužku v rozsahu 1-20, vybereme ho ze seznamu
+            if (/^\d+$/.test(slepiceToEdit.cisloKrouzku) && parseInt(slepiceToEdit.cisloKrouzku) >= 1 && parseInt(slepiceToEdit.cisloKrouzku) <= 20) {
+                cisloKrouzkuInput.value = slepiceToEdit.cisloKrouzku;
+            } else {
+                // Pokud je to jiný formát, přidáme speciální možnost
+                const option = document.createElement('option');
+                option.value = slepiceToEdit.cisloKrouzku;
+                option.textContent = slepiceToEdit.cisloKrouzku;
+                cisloKrouzkuInput.appendChild(option);
+                cisloKrouzkuInput.value = slepiceToEdit.cisloKrouzku;
+            }
+        } else {
+            cisloKrouzkuInput.value = '';
+        }
+    }
+    
+    porizovaci_cenaInput.value = slepiceToEdit.porizovaci_cena || '';
+    
+    // Skrytí hromadného přidání při editaci
+    if (document.getElementById('hromadne-pridani-section')) {
+        document.getElementById('hromadne-pridani-section').style.display = 'none';
+    }
+    
+    // Aktualizace našeptávače druhů
+    updateDruhyDatalist();
+    
+    // Kontrola omezení na jeden druh ve skupině
+    checkBreedRestriction();
+    
+    slepiceModal.classList.add('active');
+}
+
+// Otevření modálního okna pro potvrzení smazání
+function openDeleteModal(id) {
+    const slepiceToDelete = slepice.find(s => s.id === id);
+    if (!slepiceToDelete) return;
+    
+    deleteSlepiceName.textContent = `"${slepiceToDelete.druh}" (${slepiceToDelete.cisloKrouzku || slepiceToDelete.stranaKrouzku || 'bez označení'})`;
+    deleteConfirm.dataset.id = id;
+    
+    deleteModal.classList.add('active');
+}
+
+// Zavření modálního okna
+function closeModal(modal) {
+    modal.classList.remove('active');
+    
+    // Odstranění chybových hlášek
+    document.querySelectorAll('.form-error').forEach(el => {
+        el.textContent = '';
+    });
+    
+    document.querySelectorAll('.form-control').forEach(el => {
+        el.classList.remove('error');
+    });
+    
+    // Skrytí upozornění na omezení druhu
+    if (breedRestrictionError) {
+        breedRestrictionError.style.display = 'none';
+    }
+}
+
+// Validace formuláře
+function validateForm() {
+    let isValid = true;
+    
+    // Povinná pole
+    const requiredFields = [
+        { id: 'druh', message: 'Zadejte druh slepice' },
+        { id: 'datumZakoupeni', message: 'Vyberte datum zakoupení' },
+        { id: 'stariPriZakoupeni', message: 'Zadejte stáří při zakoupení' }
+    ];
+    
+    // Kontrola povinných polí
+    requiredFields.forEach(field => {
+        const element = document.getElementById(field.id);
+        const errorElement = document.getElementById(`${field.id}-error`);
+        
+        if (!element.value.trim()) {
+            element.classList.add('error');
+            errorElement.textContent = field.message;
+            isValid = false;
+        } else {
+            element.classList.remove('error');
+            errorElement.textContent = '';
+        }
+    });
+    
+    // Kontrola data úmrtí a stáří při úmrtí
+    const datumUmrti = datumUmrtiInput.value;
+    
+    if (datumUmrti) {
+        // Automatický výpočet stáří při úmrtí, pokud není zadáno
+        if (!stariPriUmrtiInput.value) {
+            calculateStariPriUmrti();
+        }
+        
+        // Ověření, že datum úmrtí je pozdější než datum zakoupení
+        const datumZakoupeni = new Date(datumZakoupeniInput.value);
+        const datumUmrtiDate = new Date(datumUmrti);
+        
+        if (datumUmrtiDate <= datumZakoupeni) {
+            datumUmrtiInput.classList.add('error');
+            document.getElementById('datumUmrti-error').textContent = 'Datum úmrtí musí být pozdější než datum zakoupení';
+            isValid = false;
+        }
+    }
+    
+    // Kontrola, zda je vybrán kroužek podle typu (číslo nebo strana)
+    const typCislo = document.getElementById('typ-krouzku-cislo').checked;
+    const typStrana = document.getElementById('typ-krouzku-strana').checked;
+    
+    // Kontrola kroužku při hromadném přidání
+    if (hromadnePridaniCheck && hromadnePridaniCheck.checked) {
+        if (!pocetSlepicInput.value || parseInt(pocetSlepicInput.value) < 2) {
+            pocetSlepicInput.classList.add('error');
+            document.getElementById('pocet-slepic-error').textContent = 'Zadejte počet slepic (minimálně 2)';
+            isValid = false;
+        } else {
+            pocetSlepicInput.classList.remove('error');
+            document.getElementById('pocet-slepic-error').textContent = '';
+        }
+        
+        if (typCislo && !cisloKrouzkuInput.value) {
+            cisloKrouzkuInput.classList.add('error');
+            document.getElementById('cisloKrouzku-error').textContent = 'Pro hromadné přidání musíte zadat číslo prvního kroužku';
+            isValid = false;
+        }
+    }
+    
+    // Kontrola omezení na jeden druh slepic ve skupině
+    if (!checkBreedRestriction()) {
+        druhInput.classList.add('error');
+        document.getElementById('druh-error').textContent = 'Všechny slepice ve skupině musí být stejného druhu';
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+// Generování alternujících stran pro hromadné přidání
+function generateAlternatingSides(count) {
+    const sides = [];
+    for (let i = 0; i < count; i++) {
+        sides.push(i % 2 === 0 ? 'levá' : 'pravá');
+    }
+    return sides;
+}
+
+// Uložení formuláře
+function saveForm() {
+    if (!validateForm()) return;
+    
+    const slepiceId = slepiceIdInput.value;
+    const isEditing = slepiceId !== '';
+    
+    const typCislo = document.getElementById('typ-krouzku-cislo').checked;
+    
+    const baseSlepice = {
+        druh: druhInput.value,
+        datumZakoupeni: datumZakoupeniInput.value,
+        stariPriZakoupeni: parseInt(stariPriZakoupeniInput.value),
+        datumUmrti: datumUmrtiInput.value || '',
+        stariPriUmrti: stariPriUmrtiInput.value ? parseInt(stariPriUmrtiInput.value) : null,
+        barvaKrouzku: barvaKrouzkuInput.value,
+        porizovaci_cena: porizovaci_cenaInput.value ? parseInt(porizovaci_cenaInput.value) : null,
+        cisloKrouzku: typCislo ? cisloKrouzkuInput.value : '',
+        stranaKrouzku: !typCislo ? document.getElementById('strana-krouzku').value : ''
+    };
+    
+    if (isEditing) {
+        // Aktualizace existující slepice
+        const updatedSlepice = {
+            id: parseInt(slepiceId),
+            ...baseSlepice
+        };
+        
+        const index = slepice.findIndex(s => s.id === parseInt(slepiceId));
+        if (index !== -1) {
+            slepice[index] = updatedSlepice;
+        }
+    } else {
+        // Přidání nové slepice nebo hromadné přidání
+        if (hromadnePridaniCheck && hromadnePridaniCheck.checked && pocetSlepicInput.value) {
+            const pocet = parseInt(pocetSlepicInput.value);
+            const startId = slepice.length > 0 ? Math.max(...slepice.map(s => s.id)) + 1 : 1;
+            
+            if (typCislo) {
+                // Hromadné přidání s čísly kroužků
+                let baseKrouzek = parseInt(cisloKrouzkuInput.value);
+                if (isNaN(baseKrouzek)) {
+                    baseKrouzek = 1; // Výchozí hodnota, pokud není zadáno číselné číslo kroužku
+                }
+                
+                // Vytvoření zadaného počtu slepic
+                for (let i = 0; i < pocet; i++) {
+                    const novaSlepice = {
+                        id: startId + i,
+                        ...baseSlepice,
+                        cisloKrouzku: (baseKrouzek + i).toString(),
+                        stranaKrouzku: ''
+                    };
+                    
+                    slepice.push(novaSlepice);
+                }
+            } else {
+                // Hromadné přidání se stranami kroužku (alternující strany - levá, pravá, levá, ...)
+                const strany = generateAlternatingSides(pocet);
+                
+                for (let i = 0; i < pocet; i++) {
+                    const novaSlepice = {
+                        id: startId + i,
+                        ...baseSlepice,
+                        cisloKrouzku: '',
+                        stranaKrouzku: strany[i]
+                    };
+                    
+                    slepice.push(novaSlepice);
+                }
+            }
+        } else {
+            // Přidání jedné slepice
+            const novaSlepice = {
+                id: slepice.length > 0 ? Math.max(...slepice.map(s => s.id)) + 1 : 1,
+                ...baseSlepice
+            };
+            
+            slepice.push(novaSlepice);
+        }
+    }
+    
+    // Uložení dat
+    saveData();
+    
+    // Aktualizace zobrazení
+    const groups = groupSlepiceByDate(slepice);
+    renderSlepiceGroups(groups);
+    updateStats();
+    
+    // Zavření modálního okna
+    closeModal(slepiceModal);
+}
+
+// Odstranění slepice
+function deleteSlepice(id) {
+    const index = slepice.findIndex(s => s.id === id);
+    if (index !== -1) {
+        slepice.splice(index, 1);
+        
+        // Uložení dat
+        saveData();
+        
+        // Aktualizace zobrazení skupin místo tabulky
+        const groups = groupSlepiceByDate(slepice);
+        renderSlepiceGroups(groups);
+        updateStats();
+    }
+    
+    // Zavření modálního okna
+    closeModal(deleteModal);
+}
+
+// Event listenery
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM content loaded, initializing app");
+    
+    // Nejprve načteme lokální data a zobrazíme je
+    loadData();
+    const groups = groupSlepiceByDate(slepice);
+    renderSlepiceGroups(groups);
+    updateStats();
+    
+    // Poté inicializujeme Firebase (pokud je k dispozici)
+    try {
+        initFirebase();
+        
+        // Přidání event listenerů pro přihlášení/odhlášení
+        const loginBtn = document.getElementById('google-login-btn');
+        if (loginBtn) {
+            console.log("Tlačítko pro přihlášení nalezeno");
+            loginBtn.addEventListener('click', () => {
+                console.log("Kliknuto na přihlášení");
+                signInWithGoogle();
+            });
+        } else {
+            console.error("Tlačítko pro přihlášení nenalezeno!");
+        }
+        
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', signOut);
+        }
+    } catch (error) {
+        console.error("Chyba při inicializaci Firebase:", error);
+    }
+    
+    // Inicializace datumu úmrtí pro zobrazení/skrytí stáří při úmrtí
+    if (datumUmrtiInput) {
+        datumUmrtiInput.addEventListener('input', function() {
+            document.getElementById('stariPriUmrti-group').style.display = this.value ? 'block' : 'none';
+            calculateStariPriUmrti();
+        });
+    }
+    
+    // Inicializace kontroly druhu při změně
+    if (druhInput) {
+        druhInput.addEventListener('input', checkBreedRestriction);
+    }
+    
+    if (datumZakoupeniInput) {
+        datumZakoupeniInput.addEventListener('change', () => {
+            checkBreedRestriction();
+            if (datumUmrtiInput && datumUmrtiInput.value) {
+                calculateStariPriUmrti();
+            }
+        });
+    }
+    
+    if (stariPriZakoupeniInput) {
+        stariPriZakoupeniInput.addEventListener('change', () => {
+            if (datumUmrtiInput && datumUmrtiInput.value) {
+                calculateStariPriUmrti();
+            }
+        });
+    }
+    
+    // Inicializace přepínače typu kroužku
+    document.querySelectorAll('input[name="typ-krouzku"]').forEach(radio => {
+        radio.addEventListener('change', toggleKrouzekTyp);
+    });
+    
+    // Inicializace hromadného přidání
+    if (hromadnePridaniCheck) {
+        hromadnePridaniCheck.addEventListener('change', toggleHromadnePridani);
+    }
+    
+    // Naplnění dropdown čísel kroužků
+    populateCislaKrouzku();
+    
+    // Aktualizace seznamu druhů
+    updateDruhyDatalist();
+    
+    // Vyhledávání
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim();
+            // Hledání nyní provádíme trochu jinak - nejprve filtrujeme slepice,
+            // pak je seskupujeme podle datumu
+            const filteredSlepice = searchSlepice(query);
+            const filteredGroups = groupSlepiceByDate(filteredSlepice);
+            renderSlepiceGroups(filteredGroups);
+        });
+    }
+    
+    // Přidání slepice
+    if (addSlepiceBtn) {
+        addSlepiceBtn.addEventListener('click', () => openAddModal());
+    }
+    
+    // Zavření modálních oken
+    if (modalClose) {
+        modalClose.addEventListener('click', () => closeModal(slepiceModal));
+    }
+    
+    if (modalCancel) {
+        modalCancel.addEventListener('click', () => closeModal(slepiceModal));
+    }
+    
+    if (deleteModalClose) {
+        deleteModalClose.addEventListener('click', () => closeModal(deleteModal));
+    }
+    
+    if (deleteCancel) {
+        deleteCancel.addEventListener('click', () => closeModal(deleteModal));
+    }
+   
+    // Uložení formuláře
+    if (modalSave) {
+        modalSave.addEventListener('click', saveForm);
+    }
+    
+    // Potvrzení odstranění
+    if (deleteConfirm) {
+        deleteConfirm.addEventListener('click', () => {
+            const id = parseInt(deleteConfirm.dataset.id);
+            deleteSlepice(id);
+        });
+    }
+    
+    // Zavření modálních oken při kliknutí mimo ně
+    window.addEventListener('click', e => {
+        if (e.target === slepiceModal) {
+            closeModal(slepiceModal);
+        } else if (e.target === deleteModal) {
+            closeModal(deleteModal);
+        }
+    });
+    
+    console.log("App initialization completed");
 });
