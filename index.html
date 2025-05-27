@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evidence chovu slepic</title>
+    <title>Farm tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
-        <h1>Evidence chovu slepic</h1>
+        <h1>Farm tracker</h1>
     </header>
 
     <!-- Status Firebase -->
@@ -34,7 +34,26 @@
         </div>
     </div>  
 
-    <div class="container">
+    <!-- Hlavní pohled s ikonou složky -->
+    <div id="main-view" class="container">
+        <div class="folder-container">
+            <div class="folder-card" id="slepice-folder">
+                <i class="fas fa-folder folder-icon"></i>
+                <h2>Slepice</h2>
+                <p class="folder-info">Klikněte pro zobrazení evidence</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailní pohled (původní obsah) -->
+    <div id="detail-view" class="container" style="display: none;">
+        <div class="view-header">
+            <button class="btn btn-secondary" id="back-to-main">
+                <i class="fas fa-arrow-left"></i> Zpět
+            </button>
+            <h2 class="view-title">Evidence slepic</h2>
+        </div>
+
         <div class="controls">
             <div class="search-box">
                 <i class="fas fa-search"></i>
@@ -69,6 +88,7 @@
                     <tr>
                         <th>Druh</th>
                         <th>Datum zakoupení</th>
+                        <th>Stáří</th>
                         <th>Počet</th>
                         <th>Celková cena</th>
                         <th>Barva kroužků</th>
@@ -208,6 +228,51 @@
         </div>
     </div>
 
+    <!-- Modal pro hromadnou editaci skupiny -->
+    <div class="modal-backdrop" id="group-edit-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Upravit celou skupinu</h2>
+                <button class="modal-close" id="group-edit-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="group-edit-form">
+                    <input type="hidden" id="group-date">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="group-druh">Druh slepice</label>
+                            <input type="text" id="group-druh" class="form-control" list="group-druhy-datalist">
+                            <datalist id="group-druhy-datalist"></datalist>
+                            <div class="form-error" id="group-druh-error"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="group-barvaKrouzku">Barva kroužku</label>
+                            <select id="group-barvaKrouzku" class="form-control">
+                                <option value="">Bez změny</option>
+                                <option value="žádná">Žádná</option>
+                                <option value="červená">Červená</option>
+                                <option value="zelená">Zelená</option>
+                                <option value="žlutá">Žlutá</option>
+                                <option value="modrá">Modrá</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="group-porizovaci_cena">Pořizovací cena (Kč)</label>
+                            <input type="number" id="group-porizovaci_cena" class="form-control" min="0" placeholder="Bez změny">
+                        </div>
+                    </div>
+                    <div class="form-help">Vyplňte pouze pole, která chcete změnit u všech slepic ve skupině</div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="group-edit-cancel">Zrušit</button>
+                <button type="button" class="btn btn-primary" id="group-edit-save">Uložit změny</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal pro potvrzení smazání -->
     <div class="modal-backdrop" id="delete-modal">
         <div class="modal confirm-delete">
@@ -225,6 +290,28 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="delete-cancel">Zrušit</button>
                 <button type="button" class="btn btn-danger" id="delete-confirm">Odstranit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pro potvrzení smazání skupiny -->
+    <div class="modal-backdrop" id="delete-group-modal">
+        <div class="modal confirm-delete">
+            <div class="modal-header">
+                <h2 class="modal-title">Odstranit celou skupinu</h2>
+                <button class="modal-close" id="delete-group-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Opravdu chcete odstranit celou skupinu?</p>
+                <p id="delete-group-info"></p>
+                <p class="delete-warning">Tato akce je nevratná a odstraní všechny slepice ve skupině!</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="delete-group-cancel">Zrušit</button>
+                <button type="button" class="btn btn-danger" id="delete-group-confirm">Odstranit skupinu</button>
             </div>
         </div>
     </div>
