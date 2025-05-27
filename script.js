@@ -302,18 +302,21 @@ const statTotal = document.getElementById('stat-total');
 const statInvestment = document.getElementById('stat-investment');
 const statHistorical = document.getElementById('stat-historical');
 
-// Funkce pro výpočet a formátování doby od zakoupení
-function calculateTimeFromPurchase(purchaseDate) {
+// Funkce pro výpočet a formátování aktuálního stáří skupiny slepic
+function calculateGroupAge(purchaseDate, initialAgeWeeks) {
     if (!purchaseDate) return "-";
     
     const today = new Date();
     const zakoupeni = new Date(purchaseDate);
     
-    // Výpočet rozdílu v týdnech
+    // Výpočet rozdílu v týdnech od zakoupení
     const rozdilDny = Math.floor((today - zakoupeni) / (1000 * 60 * 60 * 24));
     const rozdilTydny = Math.floor(rozdilDny / 7);
     
-    return formatAge(rozdilTydny);
+    // Přičtení průměrného stáří při zakoupení
+    const celkoveTydny = rozdilTydny + initialAgeWeeks;
+    
+    return formatAge(celkoveTydny);
 }
 
 // Funkce pro formátování věku
@@ -483,10 +486,13 @@ function renderSlepiceGroups(groups) {
             </div>
         `;
         
-        // NOVÁ FUNKCIONALITA: Přidání doby od zakoupení
-        const dobaStat = `
+        // OPRAVA: Výpočet průměrného stáří skupiny při zakoupení
+        const averageInitialAge = group.slepice.reduce((sum, s) => sum + (parseInt(s.stariPriZakoupeni) || 0), 0) / group.slepice.length;
+        
+        // OPRAVA: Výpočet aktuálního stáří skupiny (doba od zakoupení + stáří při zakoupení)
+        const vekovaSkupinaStat = `
             <div class="age-display">
-                <span class="age-value">${calculateTimeFromPurchase(group.datum)}</span>
+                <span class="age-value">${calculateGroupAge(group.datum, averageInitialAge)}</span>
             </div>
         `;
         
@@ -501,7 +507,7 @@ function renderSlepiceGroups(groups) {
             </td>
             <td>
                 ${formatDate(group.datum)}
-                ${dobaStat}
+                ${vekovaSkupinaStat}
             </td>
             <td>
                 ${group.pocet} ${statusHTML}
@@ -693,7 +699,7 @@ function renderSlepiceTable(data) {
                     <div class="empty-state">
                         <i class="fas fa-feather"></i>
                         <p>Zatím nemáte žádné záznamy</p>
-                        <button class="btn btn-primary" id="empty-add-btn">
+<button class="btn btn-primary" id="empty-add-btn">
                             <i class="fas fa-plus"></i> Přidat první slepici
                         </button>
                     </div>
@@ -719,13 +725,18 @@ function renderSlepiceTable(data) {
         const statusHtml = slepice.datumUmrti 
             ? `<span class="status status-deceased">Zemřela</span>` 
             : `<span class="status status-active">Žije</span>`;
+
+        // OPRAVA: Výpočet aktuálního stáří slepice
+        const aktualniStari = !slepice.datumUmrti ? 
+            calculateGroupAge(slepice.datumZakoupeni, slepice.stariPriZakoupeni) : 
+            formatAge(slepice.stariPriUmrti);
         
         row.innerHTML = `
-<td>${slepice.druh}</td>
+            <td>${slepice.druh}</td>
             <td>
                 ${formatDate(slepice.datumZakoupeni)}
                 <div class="age-display">
-                    <span class="age-value">${calculateTimeFromPurchase(slepice.datumZakoupeni)}</span>
+                    <span class="age-value">${aktualniStari}</span>
                 </div>
             </td>
             <td>
@@ -1354,8 +1365,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSlepiceGroups(filteredGroups);
         });
     }
-    
-    // Přidání slepice
+
+// Přidání slepice
     if (addSlepiceBtn) {
         addSlepiceBtn.addEventListener('click', () => openAddModal());
     }
